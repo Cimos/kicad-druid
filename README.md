@@ -61,6 +61,8 @@ The linter is a fast syntax/consistency gate — KiCad has no standalone `.kicad
 kicad-cli pcb drc --exit-code-violations --severity-error JLCPCB/JLCPCB.kicad_pcb
 ```
 
+A separate **DRC** workflow (`.github/workflows/drc.yml`) installs KiCad and runs this against each fab's default board on demand and on board/rule changes, publishing the report as an artifact. It's **informational, not a gate** — the test boards intentionally contain passing and failing footprints, so violations are expected.
+
 ## KiCad documentation
 
 - [Custom Design Rules (8.0)](https://docs.kicad.org/8.0/en/pcbnew/pcbnew.html#custom-design-rules) — the syntax these rules are written against

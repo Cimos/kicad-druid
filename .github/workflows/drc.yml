@@ -1,0 +1,83 @@
+name: DRC
+
+# Runs KiCad's electrical Design Rule Check against each fab's test board with
+# its generated .kicad_dru, and publishes the report.
+#
+# INFORMATIONAL, not a gate: the test boards intentionally contain footprints
+# that pass and fail each rule, so violations are expected. The job does not use
+# --exit-code-violations, so it stays green; read the uploaded report / job
+# summary to see what fired. (Syntax of the rule files is gated separately by
+# lint.yml.)
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "**/*.kicad_dru"
+      - "**/*.kicad_pcb"
+      - ".github/workflows/drc.yml"
+
+jobs:
+  drc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install KiCad (kicad-cli)
+        run: |
+          sudo add-apt-repository --yes ppa:kicad/kicad-8.0-releases
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends kicad
+          kicad-cli version
+
+      - name: Run DRC on each fab's default board
+        run: |
+          set -u
+          for board in JLCPCB/JLCPCB.kicad_pcb PCBWay/PCBWay.kicad_pcb; do
+            if [ ! -s "$board" ]; then
+              echo "skip $board (missing or empty)"
+              continue
+            fi
+            echo "== DRC $board =="
+            # No --exit-code-violations: expected violations must not fail the job.
+            kicad-cli pcb drc \
+              --format json \
+              --output "${board%.kicad_pcb}.drc.json" \
+              --severity-error --severity-warning \
+              "$board"
+          done
+
+      - name: Summarise reports
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob, json, os
+          print("# DRC report\n")
+          found = False
+          for f in sorted(glob.glob("**/*.drc.json", recursive=True)):
+              found = True
+              try:
+                  data = json.load(open(f))
+              except Exception as e:
+                  print(f"- `{f}`: could not parse ({e})")
+                  continue
+              v = data.get("violations", [])
+              print(f"## `{f}` — {len(v)} violation(s)\n")
+              for item in v[:50]:
+                  sev = item.get("severity", "?")
+                  desc = item.get("description", "")
+                  print(f"- **{sev}** {desc}")
+              if len(v) > 50:
+                  print(f"- … and {len(v) - 50} more")
+              print()
+          if not found:
+              print("_No DRC reports were produced._")
+          PY
+
+      - name: Upload DRC reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drc-reports
+          path: "**/*.drc.json"
+          if-no-files-found: ignore
