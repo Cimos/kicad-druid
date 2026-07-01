@@ -1,0 +1,125 @@
+# Source of truth for JLCPCB design rules.
+#
+# Values are seeded from the previously hand-maintained JLCPCB.kicad_dru (which
+# tracked https://jlcpcb.com/capabilities/pcb-capabilities). Concrete .kicad_dru
+# files are generated from this file by tools/generate_dru.py — do not hand-edit
+# the generated output.
+
+[fab]
+name = "JLCPCB"
+prefix = "JLCPCB"
+capabilities_url = "https://jlcpcb.com/capabilities/pcb-capabilities"
+default_variant = "4L-1oz"   # gets the plainly-named JLCPCB/JLCPCB.kicad_dru
+
+[flags]
+avoid_kelvin_test = true       # JLCPCB adds an expensive 4-wire Kelvin test for tiny holes
+allow_blind_buried = false     # standard process: through-hole vias only
+emit_implied_clearance = true  # emit the not-explicitly-stated catch-all clearances
+emit_bga = true                # emit the BGA fan-out clearance rule
+
+# Values that do not change between variants.
+[constants]
+drill_hole_max     = "6.3mm"
+via_annular        = "0.075mm"
+pth_hole_min       = "0.2mm"
+pth_hole_max       = "6.3mm"
+npth_hole_min      = "0.5mm"
+castellated_min    = "0.6mm"
+pth_annular        = "0.075mm"
+npth_annular       = "0.25mm"
+kelvin_annular     = "0.125mm"
+plated_slot_min    = "0.5mm"
+nonplated_slot_min = "1.0mm"
+hole_to_hole_diff  = "0.5mm"
+via_same_net       = "0.254mm"
+pad_nohole_diff    = "0.127mm"
+pad_hole_diff      = "0.5mm"
+implied_diff       = "0.127mm"
+implied_same_net   = "0.254mm"
+via_to_trace       = "0.254mm"
+pth_to_trace       = "0.33mm"
+npth_to_trace      = "0.254mm"
+npth_to_copper     = "0.2mm"
+pad_to_trace       = "0.2mm"
+bga_to_trace       = "0.1mm"
+text_thickness     = "0.15mm"
+text_height        = "1mm"
+silk_clearance     = "0.15mm"
+edge_routed        = "0.3mm"
+
+[[variant]]
+id = "2L-1oz"
+label = "1-2 layer, 1oz copper"
+layers = 2
+[variant.over]
+drill_hole_min      = "0.3mm"
+via_hole            = "0.3mm"
+trace_width_outer   = "0.127mm"
+trace_spacing_outer = "0.127mm"
+
+[[variant]]
+id = "4L-1oz"
+label = "4 layer, 1oz outer / 0.5oz inner"
+layers = 4
+[variant.over]
+drill_hole_min      = "0.2mm"
+via_hole            = "0.2mm"
+trace_width_outer   = "0.09mm"
+trace_spacing_outer = "0.09mm"
+trace_width_inner   = "0.09mm"
+trace_spacing_inner = "0.09mm"
+
+[[variant]]
+id = "4L-2oz"
+label = "4 layer, 2oz copper"
+layers = 4
+[variant.over]
+drill_hole_min      = "0.2mm"
+via_hole            = "0.2mm"
+trace_width_outer   = "0.2mm"
+trace_spacing_outer = "0.2mm"
+trace_width_inner   = "0.2mm"
+trace_spacing_inner = "0.2mm"
+
+[[variant]]
+id = "6L-1oz"
+label = "6 layer, 1oz outer / 0.5oz inner"
+layers = 6
+[variant.over]
+drill_hole_min      = "0.2mm"
+via_hole            = "0.2mm"
+trace_width_outer   = "0.09mm"
+trace_spacing_outer = "0.09mm"
+trace_width_inner   = "0.09mm"
+trace_spacing_inner = "0.09mm"
+
+# Impedance-controlled net classes. Typical starting values for JLCPCB's default
+# stackup — see the warning emitted into each file; tune to your actual stackup.
+[[diffpair]]
+name = "50R"
+diff = false
+track_width = "0.2mm"
+
+[[diffpair]]
+name = "60R_Diff"
+diff = true
+track_width = "0.3mm"
+gap = "0.15mm"
+
+[[diffpair]]
+name = "90R_Diff"
+diff = true
+track_width = "0.2mm"
+gap = "0.13mm"
+
+[[diffpair]]
+name = "100R_Diff"
+diff = true
+track_width = "0.2mm"
+gap = "0.2mm"
+
+[[diffpair]]
+name = "120R_Diff"
+diff = true
+track_width = "0.15mm"
+gap = "0.2mm"

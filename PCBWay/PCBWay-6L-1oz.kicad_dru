@@ -1,5 +1,5 @@
 (version 1)
-# Custom Design Rules (DRC) for KiCad — PCBWay: 4 layer, 1oz outer / 0.5oz inner
+# Custom Design Rules (DRC) for KiCad — PCBWay: 6 layer, 1oz outer / 0.5oz inner
 #
 # Matching PCBWay capabilities: https://www.pcbway.com/capabilities.html
 #

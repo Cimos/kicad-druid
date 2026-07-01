@@ -138,8 +138,9 @@ def lint_file(path: str) -> list:
     if not forms or not re.match(r"\(\s*version\s+1\s*\)", forms[0][1]):
         errors.append((1, "file must start with a `(version 1)` header"))
 
-    # 2. fab prefix from filename, e.g. JLCPCB.kicad_dru -> "JLCPCB: "
-    fab = os.path.basename(path).split(".")[0]
+    # 2. fab prefix from filename, e.g. JLCPCB.kicad_dru or
+    #    JLCPCB-4L-1oz.kicad_dru -> "JLCPCB: " (part before the first '-')
+    fab = os.path.basename(path).split(".")[0].split("-")[0]
 
     seen_names: dict = {}
     for start_line, form in forms:

@@ -1,5 +1,5 @@
 (version 1)
-# Custom Design Rules (DRC) for KiCad — PCBWay: 4 layer, 1oz outer / 0.5oz inner
+# Custom Design Rules (DRC) for KiCad — PCBWay: 4 layer, 2oz copper
 #
 # Matching PCBWay capabilities: https://www.pcbway.com/capabilities.html
 #
@@ -118,25 +118,25 @@
 (rule "PCBWay: Trace Width (Outer Layer)"
 	(layer outer)
 	(condition "A.Type == 'Track'")
-	(constraint track_width (min 0.09mm))
+	(constraint track_width (min 0.1524mm))
 )
 
 (rule "PCBWay: Trace Spacing (Outer Layer)"
 	(layer outer)
 	(condition "A.Type == 'Track' && B.Type == 'Track'")
-	(constraint clearance (min 0.09mm))
+	(constraint clearance (min 0.1778mm))
 )
 
 (rule "PCBWay: Trace Width (Inner Layer)"
 	(layer inner)
 	(condition "A.Type == 'Track'")
-	(constraint track_width (min 0.1mm))
+	(constraint track_width (min 0.1524mm))
 )
 
 (rule "PCBWay: Trace Spacing (Inner Layer)"
 	(layer inner)
 	(condition "A.Type == 'Track' && B.Type == 'Track'")
-	(constraint clearance (min 0.1mm))
+	(constraint clearance (min 0.1778mm))
 )
 
 
