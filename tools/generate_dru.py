@@ -40,7 +40,7 @@ class Fab:
         self.diffpairs = data.get("diffpair", [])
 
 
-def make_val(constants: dict, over: dict):
+def make_val(constants: dict, over: dict, label: str = ""):
     """Return a lookup that prefers the variant override, then the constant."""
 
     def val(key: str) -> str:
@@ -48,9 +48,47 @@ def make_val(constants: dict, over: dict):
             return over[key]
         if key in constants:
             return constants[key]
-        raise KeyError(f"missing value for '{key}'")
+        where = f" for {label}" if label else ""
+        raise KeyError(f"missing value '{key}'{where} — add it to the fab's TOML")
 
     return val
+
+
+# Flags that, when set, require these value keys to be present.
+FLAG_REQUIRES = {
+    "avoid_kelvin_test": ["kelvin_annular"],
+    "emit_implied_clearance": ["implied_diff", "implied_same_net"],
+    "emit_bga": ["bga_to_trace"],
+}
+
+
+def validate(fab: Fab) -> None:
+    """Fail early and clearly on TOML mistakes rather than deep in generation."""
+    if not fab.variants:
+        raise ValueError(f"{fab.name}: no [[variant]] blocks defined")
+
+    ids = [v.get("id") for v in fab.variants]
+    if None in ids:
+        raise ValueError(f"{fab.name}: every [[variant]] needs an id")
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"{fab.name}: duplicate variant ids in {ids}")
+    if fab.default_variant not in ids:
+        raise ValueError(
+            f"{fab.name}: default_variant '{fab.default_variant}' is not one of {ids}")
+
+    for flag, keys in FLAG_REQUIRES.items():
+        if fab.flags.get(flag):
+            missing = [k for k in keys if k not in fab.constants]
+            if missing:
+                raise ValueError(
+                    f"{fab.name}: flag '{flag}' is set but [constants] is missing {missing}")
+
+    for dp in fab.diffpairs:
+        if "name" not in dp or "track_width" not in dp:
+            raise ValueError(f"{fab.name}: every [[diffpair]] needs a name and track_width")
+        if dp.get("diff") and "gap" not in dp:
+            raise ValueError(
+                f"{fab.name}: differential net class '{dp['name']}' needs a gap")
 
 
 def rule(name: str, condition: str, constraints: list, comment: str = "", layer: str = "") -> str:
@@ -70,7 +108,7 @@ def rule(name: str, condition: str, constraints: list, comment: str = "", layer:
 def generate(fab: Fab, variant: dict) -> str:
     p = fab.prefix
     over = variant.get("over", {})
-    val = make_val(fab.constants, over)
+    val = make_val(fab.constants, over, f"{fab.name} {variant.get('id', '?')}")
     layers = variant.get("layers", 2)
     has_inner = layers > 2
 
@@ -272,9 +310,19 @@ def main(argv: list) -> int:
     for tp in toml_paths:
         with open(tp, "rb") as fh:
             fab = Fab(tomllib.load(fh))
+        validate(fab)
+
+        expected = {}
         for variant in fab.variants:
-            text = generate(fab, variant)
-            path = output_path(fab, variant)
+            expected[output_path(fab, variant)] = generate(fab, variant)
+
+        # Orphans: .kicad_dru files in the fab's dir that we no longer generate
+        # (e.g. left behind after a variant was renamed or removed).
+        fab_dir = os.path.join(ROOT, fab.name)
+        on_disk = set(glob.glob(os.path.join(fab_dir, "*.kicad_dru")))
+        orphans = sorted(on_disk - set(expected))
+
+        for path, text in expected.items():
             existing = None
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as fh:
@@ -287,6 +335,14 @@ def main(argv: list) -> int:
                 with open(path, "w", encoding="utf-8") as fh:
                     fh.write(text)
                 written.append(os.path.relpath(path, ROOT))
+
+        for orphan in orphans:
+            rel = os.path.relpath(orphan, ROOT)
+            if check:
+                stale.append(f"{rel} (orphaned — no matching variant)")
+            else:
+                os.remove(orphan)
+                print(f"removed orphan {rel}")
 
     if check:
         if stale:

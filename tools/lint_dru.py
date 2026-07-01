@@ -138,11 +138,13 @@ def lint_file(path: str) -> list:
     if not forms or not re.match(r"\(\s*version\s+1\s*\)", forms[0][1]):
         errors.append((1, "file must start with a `(version 1)` header"))
 
-    # 2. fab prefix from filename, e.g. JLCPCB.kicad_dru or
-    #    JLCPCB-4L-1oz.kicad_dru -> "JLCPCB: " (part before the first '-')
-    fab = os.path.basename(path).split(".")[0].split("-")[0]
-
+    # 2. Rule names must share one "<FAB>: " prefix, and the filename must start
+    #    with it. Deriving the prefix from the rules (not by splitting the
+    #    filename on '-') keeps this correct for hyphenated fab names and for
+    #    variant files like JLCPCB-4L-1oz.kicad_dru.
+    stem = os.path.basename(path).split(".")[0]
     seen_names: dict = {}
+    prefixes: dict = {}  # prefix -> first line seen
     for start_line, form in forms:
         if not re.match(r"\(\s*rule\b", form):
             continue
@@ -163,10 +165,17 @@ def lint_file(path: str) -> list:
         else:
             seen_names[name] = start_line
 
-        if not name.startswith(f"{fab}: "):
+        if ": " in name:
+            prefixes.setdefault(name.split(": ", 1)[0], start_line)
+        else:
+            errors.append((start_line, f'rule "{name}" should be named "<FAB>: ..."'))
+
+    if len(prefixes) > 1:
+        errors.append((1, f"rules use more than one fab prefix: {sorted(prefixes)}"))
+    for pfx in prefixes:
+        if not stem.startswith(pfx):
             errors.append(
-                (start_line, f'rule "{name}" should be prefixed with "{fab}: "')
-            )
+                (prefixes[pfx], f'rule prefix "{pfx}" does not match filename "{stem}"'))
 
     # 3. lowercase type literals (scanned on the raw text so line numbers and
     #    the surrounding condition are reported as the author wrote them).

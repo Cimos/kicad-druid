@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tomllib  # noqa: E402  (stdlib, 3.11+)
-from generate_dru import Fab, ROOT  # noqa: E402
+from generate_dru import Fab, ROOT, validate  # noqa: E402
 
 OUT = os.path.join(ROOT, "COMPARISON.md")
 
@@ -69,7 +69,9 @@ def load_fabs() -> list:
     fabs = []
     for tp in sorted(glob.glob(os.path.join(ROOT, "capabilities", "*.toml"))):
         with open(tp, "rb") as fh:
-            fabs.append(Fab(tomllib.load(fh)))
+            fab = Fab(tomllib.load(fh))
+        validate(fab)
+        fabs.append(fab)
     return fabs
 
 
