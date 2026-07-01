@@ -3,6 +3,9 @@
 #
 # Matching PCBWay capabilities: https://www.pcbway.com/capabilities.html
 #
+# This is the '6L-1oz' variant. If your order differs, use one of
+# the other variants (2L-1oz, 4L-1oz, 4L-2oz) — see the README table.
+#
 # GENERATED FILE — do not edit by hand.
 # Edit capabilities/PCBWay.toml and run tools/generate_dru.py instead.
 #

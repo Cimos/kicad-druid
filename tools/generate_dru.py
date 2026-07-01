@@ -117,6 +117,11 @@ def generate(fab: Fab, variant: dict) -> str:
     out.append(f"# Custom Design Rules (DRC) for KiCad — {fab.name}: {variant['label']}")
     out.append("#")
     out.append(f"# Matching {fab.name} capabilities: {fab.url}")
+    others = [v["id"] for v in fab.variants if v.get("id") != variant.get("id")]
+    if others:
+        out.append("#")
+        out.append(f"# This is the '{variant['id']}' variant. If your order differs, use one of")
+        out.append(f"# the other variants ({', '.join(others)}) — see the README table.")
     out.append("#")
     out.append("# GENERATED FILE — do not edit by hand.")
     out.append(f"# Edit capabilities/{fab.name}.toml and run tools/generate_dru.py instead.")
