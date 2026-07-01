@@ -24,5 +24,7 @@ jobs:
           python-version: "3.11"
       - name: Check generated files are in sync with capabilities/*.toml
         run: python3 tools/generate_dru.py --check
+      - name: Check COMPARISON.md is in sync with capabilities/*.toml
+        run: python3 tools/gen_comparison.py --check
       - name: Lint .kicad_dru files
         run: python3 tools/lint_dru.py

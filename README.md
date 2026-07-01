@@ -26,6 +26,8 @@ The rule files are **generated** from a single source of truth per fab (`capabil
 
 > **Editing rules:** change `capabilities/<FAB>.toml` and re-run `python3 tools/generate_dru.py`. Do **not** hand-edit the generated `.kicad_dru` files — CI regenerates and fails if they drift from the source.
 
+See [COMPARISON.md](COMPARISON.md) for a side-by-side of every fab's rule values (also generated from the same source).
+
 ## Use in your project
 
 1. Copy the `.kicad_dru` matching your order from `JLCPCB/` or `PCBWay/` into your KiCad project folder.
