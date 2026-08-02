@@ -12,6 +12,13 @@ before there was any automated check:
   * lowercase item-type literals in conditions (`'track'`, `'via'`, `'pad'`,
     `'text'`, `'graphic'`) — KiCad expects PascalCase (`'Track'`, `'Via'`,
     `'Pad'`, ...); the lowercase form parses fine but silently never matches.
+  * layer names written in their Board Setup display form (`F.Silkscreen`)
+    rather than the file-format form (`F.SilkS`), and layer names matching no
+    KiCad layer at all. A display name resolves only while the board still
+    uses the default: imported boards and boards written before KiCad 6 carry
+    a different name, and the rule then stops matching. In a `(layer ...)`
+    clause that makes KiCad reject the whole file, so every rule in it quietly
+    stops being enforced; in a condition it fails with no message anywhere.
 
 No third-party dependencies; runs on any Python 3.8+.
 
@@ -24,6 +31,7 @@ Exit code is non-zero if any error is found.
 
 from __future__ import annotations
 
+import fnmatch
 import glob
 import os
 import re
@@ -42,6 +50,78 @@ BAD_TYPE_LITERALS = {
 
 # Matches e.g.  A.Type == 'track'   or   B.Type=='via'
 TYPE_LITERAL_RE = re.compile(r"\.Type\s*[=!]=\s*'([^']*)'")
+
+# The layer names KiCad writes in board files. These never change and are the
+# only spellings that resolve on every board.
+KNOWN_LAYERS = {
+    "F.Cu", "B.Cu",
+    "F.Adhes", "B.Adhes",
+    "F.Paste", "B.Paste",
+    "F.SilkS", "B.SilkS",
+    "F.Mask", "B.Mask",
+    "F.CrtYd", "B.CrtYd",
+    "F.Fab", "B.Fab",
+    "Edge.Cuts", "Margin",
+    "Dwgs.User", "Cmts.User", "Eco1.User", "Eco2.User",
+}
+KNOWN_LAYERS.update(f"In{n}.Cu" for n in range(1, 31))
+KNOWN_LAYERS.update(f"User.{n}" for n in range(1, 46))
+
+# Board Setup display names whose file-format spelling differs. The display
+# name is editable, and board importers overwrite it, so a rule written
+# against it stops matching. Suffix map first (these pair with an F./B./? or
+# a glob prefix), then the handful of whole names that differ.
+DISPLAY_SUFFIXES = {
+    "Silkscreen": "SilkS",
+    "Courtyard": "CrtYd",
+    "Adhesive": "Adhes",
+}
+DISPLAY_NAMES = {
+    "User.Drawings": "Dwgs.User",
+    "User.Comments": "Cmts.User",
+    "User.Eco1": "Eco1.User",
+    "User.Eco2": "Eco2.User",
+}
+
+# Layer keywords that are not layer names.
+LAYER_KEYWORDS = {"outer", "inner"}
+
+# Where a layer name can appear: a (layer "...") clause, a .Layer comparison,
+# or an existsOnLayer('...') call.
+LAYER_CLAUSE_RE = re.compile(r'\(\s*layer\s+"([^"]*)"')
+LAYER_COMPARE_RE = re.compile(r"\.Layer\s*[=!]=\s*'([^']*)'")
+EXISTS_ON_LAYER_RE = re.compile(r"existsOnLayer\(\s*'([^']*)'\s*\)")
+
+
+def check_layer_token(token: str):
+    """Return an error message for one layer name, or None if it is fine.
+
+    Handles KiCad's `?` (one character) and `*` (any run) wildcards, which is
+    how `?.SilkS` covers both the front and back layers.
+    """
+    if token in LAYER_KEYWORDS:
+        return None
+
+    if any(fnmatch.fnmatchcase(known, token) for known in KNOWN_LAYERS):
+        return None
+
+    # Resolves against no board layer. Say why, if we can tell.
+    if token in DISPLAY_NAMES:
+        return (
+            f"layer '{token}' is a Board Setup display name — use the "
+            f"file-format name '{DISPLAY_NAMES[token]}'"
+        )
+
+    prefix, _, suffix = token.rpartition(".")
+    if suffix in DISPLAY_SUFFIXES:
+        return (
+            f"layer '{token}' is a Board Setup display name — use the "
+            f"file-format name '{prefix}.{DISPLAY_SUFFIXES[suffix]}'. The "
+            f"display name is editable and board importers rewrite it, so "
+            f"this only matches while the board keeps KiCad's default"
+        )
+
+    return f"layer '{token}' matches no KiCad layer"
 
 
 class LintError(Exception):
@@ -181,6 +261,16 @@ def lint_file(path: str) -> list:
                         f"'{BAD_TYPE_LITERALS[literal]}' (the lowercase form never matches)",
                     )
                 )
+
+    # 4. layer names, in (layer ...) clauses, .Layer comparisons and
+    #    existsOnLayer() calls.
+    for i, raw_line in enumerate(raw.splitlines(), start=1):
+        line_code = strip_comments(raw_line)
+        for pattern in (LAYER_CLAUSE_RE, LAYER_COMPARE_RE, EXISTS_ON_LAYER_RE):
+            for m in pattern.finditer(line_code):
+                problem = check_layer_token(m.group(1))
+                if problem:
+                    errors.append((i, problem))
 
     return errors
 

@@ -27,9 +27,15 @@ Each folder contains:
 
 Many rules have alternates commented out for different layer counts or copper weights. Read the comments at the top of each rule and uncomment the variant that matches what you're ordering.
 
+## Layer names
+
+Rules here use KiCad's file-format layer names — `F.SilkS`, not `F.Silkscreen`. Both spellings resolve on a board that still uses KiCad's default layer names, but the display name is editable in Board Setup, and board importers (Altium, Eagle, EasyEDA, CADSTAR) overwrite it with the source tool's naming. Boards written before KiCad 6 also load with the file-format name showing. On any of those, a rule written against the display name silently stops matching.
+
+That failure is worse than it looks. An unresolvable layer name in a `(layer ...)` clause makes KiCad reject the **entire** rule file, so every rule in it stops being enforced — not just the offending one. The PCB editor shows an `Unrecognized layer` error, but `kicad-cli pcb drc` reports nothing: no message, empty stderr, exit code 0. A green DRC run in CI does not prove your custom rules ran. After adding a `.kicad_dru`, check `Board Setup > Design Rules > Custom Rules` for errors.
+
 ## Validation
 
-Every `.kicad_dru` file is checked in CI by a small linter (`tools/lint_dru.py`, no dependencies) that catches malformed s-expressions, missing `(version 1)` headers, rules with no constraint, duplicate names, wrong fab prefixes, and lowercase item-type literals (`'track'`/`'via'`/`'pad'`) that KiCad silently never matches. Run it locally with:
+Every `.kicad_dru` file is checked in CI by a small linter (`tools/lint_dru.py`, no dependencies) that catches malformed s-expressions, missing `(version 1)` headers, rules with no constraint, duplicate names, wrong fab prefixes, lowercase item-type literals (`'track'`/`'via'`/`'pad'`) that KiCad silently never matches, and layer names written in their display form (`F.Silkscreen` instead of `F.SilkS`) or matching no layer at all. Run it locally with:
 
 ```
 python3 tools/lint_dru.py
