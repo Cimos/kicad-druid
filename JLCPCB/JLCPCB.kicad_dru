@@ -213,19 +213,19 @@
 # --- Legend ---
 
 (rule "JLCPCB: Minimum Line Width"
-	(layer "?.Silkscreen")
+	(layer "?.SilkS")
 	(condition "A.Type == 'Text' || A.Type == 'Text Box'")
 	(constraint text_thickness (min 0.15mm))
 )
 
 (rule "JLCPCB: Minimum Text Height"
-	(layer "?.Silkscreen")
+	(layer "?.SilkS")
 	(condition "A.Type == 'Text' || A.Type == 'Text Box'")
 	(constraint text_height (min 1mm))
 )
 
 (rule "JLCPCB: Pad to Silkscreen"
-	(condition "A.Type == 'Pad' && ((A.existsOnLayer('F.Mask') && B.Layer == 'F.Silkscreen') || (A.existsOnLayer('B.Mask') && B.Layer == 'B.Silkscreen')) ")
+	(condition "A.Type == 'Pad' && ((A.existsOnLayer('F.Mask') && B.Layer == 'F.SilkS') || (A.existsOnLayer('B.Mask') && B.Layer == 'B.SilkS')) ")
 	(constraint silk_clearance (min 0.15mm))
 )
 
