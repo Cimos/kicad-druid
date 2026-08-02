@@ -1,10 +1,8 @@
-# KiCad Custom Design Rules
+# kicad-druid
 
-Custom design rules for KiCad that match the manufacturing capabilities of common PCB fab houses. Rules are stored in `.kicad_dru` files and validated against a paired test board (`.kicad_pcb`) so each rule has at least one footprint that passes or fails as expected.
+KiCad custom design rules (`.kicad_dru`) that match the manufacturing capabilities of common PCB fab houses. Rules are validated against a paired test board (`.kicad_pcb`) so each rule has at least one footprint that passes or fails as expected.
 
 The rules are authored against the KiCad 8 custom-rules syntax and are forward-compatible with **KiCad 9 and 10** — every token used here is unchanged across those releases (KiCad 9/10 only add new constraints on top). If you're on KiCad 8, 9, or 10, they just work.
-
-> Maintained fork of [labtroll/KiCad-DesignRules](https://github.com/labtroll/KiCad-DesignRules), which has been inactive since November 2024.
 
 ## Supported fabs
 
@@ -52,6 +50,14 @@ kicad-cli pcb drc --exit-code-violations --severity-error JLCPCB/JLCPCB.kicad_pc
 - [Custom Design Rules (8.0)](https://docs.kicad.org/8.0/en/pcbnew/pcbnew.html#custom-design-rules) — the syntax these rules are written against
 - [Design Rules Check (8.0)](https://docs.kicad.org/8.0/en/pcbnew/pcbnew.html#design_rule_checking)
 - [KiCad CLI reference](https://docs.kicad.org/en/cli/cli.html) — `kicad-cli pcb drc` for headless checking
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for what has shipped and what is next.
+
+## Origins
+
+This started as a fork of [labtroll/KiCad-DesignRules](https://github.com/labtroll/KiCad-DesignRules) by Morten Hattesen, inactive since November 2024. The full commit history is preserved here, original work included. It is now maintained independently: KiCad 8+ support, a second fab, CI linting, and a test board per fab.
 
 ## Contributing
 
