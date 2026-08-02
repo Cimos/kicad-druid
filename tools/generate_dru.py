@@ -278,13 +278,13 @@ def generate(fab: Fab, variant: dict) -> str:
     # --- Legend ---
     out.append("\n\n# --- Legend ---\n")
     out.append(rule(f"{p}: Minimum Line Width", "A.Type == 'Text' || A.Type == 'Text Box'",
-                    [f"(constraint text_thickness (min {val('text_thickness')}))"], layer='"?.Silkscreen"'))
+                    [f"(constraint text_thickness (min {val('text_thickness')}))"], layer='"?.SilkS"'))
     out.append("")
     out.append(rule(f"{p}: Minimum Text Height", "A.Type == 'Text' || A.Type == 'Text Box'",
-                    [f"(constraint text_height (min {val('text_height')}))"], layer='"?.Silkscreen"'))
+                    [f"(constraint text_height (min {val('text_height')}))"], layer='"?.SilkS"'))
     out.append("")
     out.append(rule(f"{p}: Pad to Silkscreen",
-                    "A.Type == 'Pad' && ((A.existsOnLayer('F.Mask') && B.Layer == 'F.Silkscreen') || (A.existsOnLayer('B.Mask') && B.Layer == 'B.Silkscreen'))",
+                    "A.Type == 'Pad' && ((A.existsOnLayer('F.Mask') && B.Layer == 'F.SilkS') || (A.existsOnLayer('B.Mask') && B.Layer == 'B.SilkS'))",
                     [f"(constraint silk_clearance (min {val('silk_clearance')}))"]))
 
     # --- Board Outlines ---
