@@ -38,6 +38,12 @@
 	(constraint annular_width (min 0.05mm))
 )
 
+# Comment out if extra cost is OK.
+(rule "JLCPCB: Via diameter < 0.45mm with hole < 0.3mm adds extra cost"
+	(condition "(A.Type == 'Via') && (A.Hole < 0.3mm)")
+	(constraint via_diameter (min 0.45mm))
+)
+
 (rule "JLCPCB: PTH Hole Size"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()")
 	(constraint hole_size (min 0.2mm) (max 6.3mm))
