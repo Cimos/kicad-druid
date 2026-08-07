@@ -117,14 +117,9 @@
 
 # --- Minimum Clearance ---
 
-(rule "JLCPCB: Hole to Hole Clearance (Different Nets)"
-	(condition "A.Net != B.Net")
-	(constraint hole_to_hole (min 0.5mm))
-)
-
-(rule "JLCPCB: Via Hole to Via Hole Clearance (Same Net)"
-	(condition "A.Type == 'Via' && B.Type == 'Via' && A.Net == B.Net")
-	(constraint hole_to_hole (min 0.254mm))
+(rule "JLCPCB: Via Hole to Via Hole Clearance (Different Nets)"
+	(condition "A.Type == 'Via' && B.Type == 'Via' && A.Net != B.Net")
+	(constraint hole_to_hole (min 0.2mm))
 )
 
 (rule "JLCPCB: Pad to Pad Clearance (Pad without Hole, Different Nets)"
@@ -134,7 +129,7 @@
 
 (rule "JLCPCB: Pad Hole to Pad Hole Clearance (Pad with Hole, Different Nets)"
 	(condition "A.Type == 'Pad' && (A.Pad_Type == 'Through-hole' || A.Pad_Type == 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type == 'Through-hole' || B.Pad_Type == 'NPTH, mechanical') && A.Net != B.Net")
-	(constraint hole_to_hole (min 0.5mm))
+	(constraint hole_to_hole (min 0.45mm))
 )
 
 # NOTE: This is not stated specifically, but is implied by other rules.
