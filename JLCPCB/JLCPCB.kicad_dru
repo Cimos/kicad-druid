@@ -146,7 +146,7 @@
 
 (rule "JLCPCB: Via to Trace"
 	(condition "A.Type == 'Via' && B.Type == 'Track'")
-	(constraint hole_clearance (min 0.254mm))
+	(constraint hole_clearance (min 0.2mm))
 )
 
 (rule "JLCPCB: PTH to Trace"
