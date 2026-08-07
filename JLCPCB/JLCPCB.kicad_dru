@@ -61,7 +61,13 @@
 
 (rule "JLCPCB: PTH Annular Ring"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()")
-	(constraint annular_width (min 0.075mm))
+  # Choose between:
+  # 70µm/2oz copper
+	# (constraint annular_width (min 0.254mm))
+  # 1-2 Layers, 35µm/1oz copper
+	# (constraint annular_width (min 0.18mm))
+  # 4+ Layers, 35µm/1oz copper
+	(constraint annular_width (min 0.15mm))
 )
 
 (rule "JLCPCB: NPTH Annular Ring"
