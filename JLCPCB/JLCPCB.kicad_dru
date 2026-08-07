@@ -216,6 +216,14 @@
 	# (constraint clearance (min 0.3mm))
 )
 
+# As of KiCad 9.0.8, this incorrectly flags any kind of connection
+# between tracks (even if the track continues straight on and is just
+# split into two parts with "Break Track").
+# (rule "JLCPCB: Same-net Trace Spacing"
+# 	(condition "A.Type == 'Track' && B.Type == 'Track'")
+# 	(constraint physical_clearance (min 0.25mm))
+# )
+
 
 # --- Legend ---
 
