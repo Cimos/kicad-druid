@@ -124,7 +124,7 @@
 
 (rule "JLCPCB: Pad to Pad Clearance (Pad without Hole, Different Nets)"
 	(condition "A.Type == 'Pad' && (A.Pad_Type != 'Through-hole' && A.Pad_Type != 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type != 'Through-hole' && B.Pad_Type != 'NPTH, mechanical') && A.Net != B.Net")
-	(constraint clearance (min 0.127mm))
+	(constraint clearance (min 0.15mm))
 )
 
 (rule "JLCPCB: Pad Hole to Pad Hole Clearance (Pad with Hole, Different Nets)"
