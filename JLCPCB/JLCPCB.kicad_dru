@@ -99,6 +99,12 @@
 	(constraint hole_size (min 0.5mm))
 )
 
+# JLCPCB: "The length of the slot should be at least 2 times of the width."
+(rule "JLCPCB: Plated Slot Length-to-width Ratio"
+	(condition "(A.Type == 'Pad')")
+	(constraint assertion "(A.Hole_Size_X == A.Hole_Size_Y) || (A.Hole_Size_X >= (2 * A.Hole_Size_Y)) || (A.Hole_Size_Y >= (2 * A.Hole_Size_X))")
+)
+
 # JLCPCB: "The minimum Non-Plated Slot Width is 1.0mm, please draw the slot
 # outline in the mechanical layer (GML or GKO)."
 (rule "JLCPCB: Non-Plated Slot Width"
