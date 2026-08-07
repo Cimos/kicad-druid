@@ -149,9 +149,10 @@
 	(constraint hole_clearance (min 0.2mm))
 )
 
+# JLCPCB: "0.35mm is recommended, minimum 0.28mm"
 (rule "JLCPCB: PTH to Trace"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated() && B.Type == 'Track'")
-	(constraint hole_clearance (min 0.33mm))
+	(constraint hole_clearance (min 0.28mm))
 )
 
 (rule "JLCPCB: NPTH to Trace"
