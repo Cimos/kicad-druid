@@ -176,46 +176,37 @@
 
 # --- Minimum Trace Width and Spacing ---
 
-(rule "JLCPCB: Trace Width (Outer Layer)"
-	(layer outer)
+(rule "JLCPCB: Trace Width"
 	(condition "A.Type == 'Track'")
   # Choose between:
   # 1-2 Layers (1oz)
-  # (constraint track_width (min 0.127mm))
+	# (constraint track_width (min 0.1mm))
   # 4-6 Layers (1oz and 0.5oz)
 	(constraint track_width (min 0.09mm))
   # 1-6 Layers (2oz)
-  # (constraint track_width (min 0.2mm))
+	# (constraint track_width (min 0.16mm))
+  # 2 Layers (2.5oz)
+	# (constraint track_width (min 0.2mm))
+  # 2 Layers (3.5oz)
+	# (constraint track_width (min 0.25mm))
+  # 2 Layers (4.5oz)
+	# (constraint track_width (min 0.3mm))
 )
-(rule "JLCPCB: Trace Spacing (Outer Layer)"
-	(layer outer)
+(rule "JLCPCB: Trace Spacing"
 	(condition "A.Type == 'Track' && B.Type == 'Track'")
   # Choose between:
   # 1-2 Layers (1oz)
-  # (constraint clearance (min 0.127mm))
+	# (constraint clearance (min 0.1mm))
   # 4-6 Layers (1oz and 0.5oz)
 	(constraint clearance (min 0.09mm))
   # 1-6 Layers (2oz)
-  # (constraint clearance (min 0.2mm))
-)
-
-(rule "JLCPCB: Trace Width (Inner Layer)"
-	(layer inner)
-	(condition "A.Type == 'Track'")
-  # Choose between:
-  # 4-6 Layers (1oz and 0.5oz)
-	(constraint track_width (min 0.09mm))
-  # 4-6 Layers (2oz)
-  # (constraint track_width (min 0.2mm))
-)
-(rule "JLCPCB: Trace Spacing (Inner Layer)"
-	(layer inner)
-	(condition "A.Type == 'Track' && B.Type == 'Track'")
-  # Choose between:
-  # 4-6 Layers (1oz and 0.5oz)
-	(constraint clearance (min 0.09mm))
-  # 4-6 Layers (2oz)
-  # (constraint clearance (min 0.2mm))
+	# (constraint clearance (min 0.16mm))
+  # 2 Layers (2.5oz)
+	# (constraint clearance (min 0.2mm))
+  # 2 Layers (3.5oz)
+	# (constraint clearance (min 0.25mm))
+  # 2 Layers (4.5oz)
+	# (constraint clearance (min 0.3mm))
 )
 
 
