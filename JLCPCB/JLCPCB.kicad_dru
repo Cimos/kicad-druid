@@ -72,7 +72,7 @@
 
 (rule "JLCPCB: NPTH Annular Ring"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && !A.isPlated()")
-	(constraint annular_width (min 0.25mm))
+	(constraint annular_width (min 0.45mm))
 )
 
 # An expensive 4-Wire Kelvin Test is automatically added for holes that are < 0.3mm with a diameter ≤ 0.4mm.
