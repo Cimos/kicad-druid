@@ -157,7 +157,7 @@
 
 (rule "JLCPCB: NPTH to Trace"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && !A.isPlated() && B.Type == 'Track'")
-	(constraint hole_clearance (min 0.254mm))
+	(constraint hole_clearance (min 0.2mm))
 )
 
 (rule "JLCPCB: Pad to Trace"
