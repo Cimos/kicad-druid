@@ -35,11 +35,7 @@
 
 (rule "JLCPCB: Via Annular Ring"
 	(condition "A.Type == 'Via'")
-  # Choose between:
-  # 1-6 Layers
-  # (constraint annular_width (min 0.05mm))
-  # 1-6 Layers (preferred)
-	(constraint annular_width (min 0.075mm))
+	(constraint annular_width (min 0.05mm))
 )
 
 (rule "JLCPCB: PTH Hole Size"
