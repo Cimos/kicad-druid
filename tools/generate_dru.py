@@ -58,8 +58,10 @@ def make_val(constants: dict, over: dict, label: str = ""):
 # Flags that, when set, require these value keys to be present.
 FLAG_REQUIRES = {
     "avoid_kelvin_test": ["kelvin_annular"],
+    "avoid_small_via_extra_cost": ["small_via_hole", "small_via_diameter"],
     "emit_implied_clearance": ["implied_diff", "implied_same_net"],
     "emit_bga": ["bga_to_trace"],
+    "emit_same_net_trace_spacing": ["same_net_trace_spacing"],
 }
 
 # Every key that generate() consumes through val(...). Keep in sync with the
@@ -69,20 +71,26 @@ FLAG_REQUIRES = {
 VALUE_KEYS = frozenset({
     "drill_hole_min", "drill_hole_max",
     "via_hole", "via_annular", "via_same_net", "via_to_trace",
+    "small_via_hole", "small_via_diameter",
     "pth_hole_min", "pth_hole_max", "pth_annular", "pth_to_trace",
+    "pth_to_trace_inner",
     "npth_hole_min", "npth_annular", "npth_to_trace", "npth_to_copper",
     "castellated_min", "kelvin_annular",
     "plated_slot_min", "nonplated_slot_min",
-    "hole_to_hole_diff", "pad_nohole_diff", "pad_hole_diff",
+    "via_hole_diff", "via_pad_hole_diff", "pad_nohole_diff", "pad_hole_diff",
     "implied_diff", "implied_same_net",
     "pad_to_trace", "bga_to_trace",
     "trace_width_outer", "trace_spacing_outer",
     "trace_width_inner", "trace_spacing_inner",
+    "same_net_trace_spacing",
     "text_thickness", "text_height", "silk_clearance", "edge_routed",
 })
 
-ALLOWED_FLAGS = frozenset(
-    {"avoid_kelvin_test", "allow_blind_buried", "emit_implied_clearance", "emit_bga"})
+ALLOWED_FLAGS = frozenset({
+    "avoid_kelvin_test", "avoid_small_via_extra_cost", "allow_blind_buried",
+    "enforce_plated_slot_ratio", "emit_implied_clearance", "emit_bga",
+    "merge_trace_layers", "emit_same_net_trace_spacing",
+})
 VARIANT_KEYS = frozenset({"id", "label", "layers", "over"})
 DIFFPAIR_KEYS = frozenset({"name", "diff", "track_width", "gap"})
 
@@ -193,6 +201,9 @@ def generate(fab: Fab, variant: dict) -> str:
     p = fab.prefix
     over = variant.get("over", {})
     val = make_val(fab.constants, over, f"{fab.name} {variant.get('id', '?')}")
+
+    def has_val(key: str) -> bool:
+        return key in over or key in fab.constants
     # validate() guarantees 'layers' is present and a positive integer; no
     # default here — a silent fallback is how a 4-layer variant once lost its
     # inner-layer rules.
@@ -225,6 +236,13 @@ def generate(fab: Fab, variant: dict) -> str:
     out.append("")
     out.append(rule(f"{p}: Via Annular Ring", "A.Type == 'Via'",
                     [f"(constraint annular_width (min {val('via_annular')}))"]))
+    if fab.flags.get("avoid_small_via_extra_cost"):
+        out.append("")
+        out.append(rule(
+            f"{p}: Via diameter < {val('small_via_diameter')} with hole < {val('small_via_hole')} adds extra cost",
+            f"(A.Type == 'Via') && (A.Hole < {val('small_via_hole')})",
+            [f"(constraint via_diameter (min {val('small_via_diameter')}))"],
+            comment="Comment out if extra cost is OK."))
     out.append("")
     out.append(rule(f"{p}: PTH Hole Size",
                     "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()",
@@ -265,6 +283,13 @@ def generate(fab: Fab, variant: dict) -> str:
     out.append(rule(f"{p}: Plated Slot Width",
                     "A.Type == 'Pad' && (A.Hole_Size_X != A.Hole_Size_Y) && A.isPlated()",
                     [f"(constraint hole_size (min {val('plated_slot_min')}))"]))
+    if fab.flags.get("enforce_plated_slot_ratio"):
+        out.append("")
+        out.append(rule(
+            f"{p}: Plated Slot Length-to-width Ratio",
+            "(A.Type == 'Pad')",
+            ['(constraint assertion "(A.Hole_Size_X == A.Hole_Size_Y) || (A.Hole_Size_X >= (2 * A.Hole_Size_Y)) || (A.Hole_Size_Y >= (2 * A.Hole_Size_X))")'],
+            comment=f'{fab.name}: "The length of the slot should be at least 2 times of the width."'))
     out.append("")
     out.append(rule(f"{p}: Non-Plated Slot Width",
                     "A.Type == 'Pad' && (A.Hole_Size_X != A.Hole_Size_Y) && !A.isPlated()",
@@ -272,31 +297,48 @@ def generate(fab: Fab, variant: dict) -> str:
 
     # --- Minimum Clearance ---
     out.append("\n\n# --- Minimum Clearance ---\n")
-    out.append(rule(f"{p}: Hole to Hole Clearance (Different Nets)", "A.Net != B.Net",
-                    [f"(constraint hole_to_hole (min {val('hole_to_hole_diff')}))"]))
-    out.append("")
-    out.append(rule(f"{p}: Via Hole to Via Hole Clearance (Same Net)",
-                    "A.Type == 'Via' && B.Type == 'Via' && A.Net == B.Net",
-                    [f"(constraint hole_to_hole (min {val('via_same_net')}))"]))
-    out.append("")
-    out.append(rule(f"{p}: Pad to Pad Clearance (Pad without Hole, Different Nets)",
-                    "A.Type == 'Pad' && (A.Pad_Type != 'Through-hole' && A.Pad_Type != 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type != 'Through-hole' && B.Pad_Type != 'NPTH, mechanical') && A.Net != B.Net",
-                    [f"(constraint clearance (min {val('pad_nohole_diff')}))"]))
+    out.append(rule(f"{p}: Via Hole to Via Hole Clearance (Different Nets)",
+                    "A.Type == 'Via' && B.Type == 'Via' && A.Net != B.Net",
+                    [f"(constraint hole_to_hole (min {val('via_hole_diff')}))"]))
     out.append("")
     out.append(rule(f"{p}: Pad Hole to Pad Hole Clearance (Pad with Hole, Different Nets)",
                     "A.Type == 'Pad' && (A.Pad_Type == 'Through-hole' || A.Pad_Type == 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type == 'Through-hole' || B.Pad_Type == 'NPTH, mechanical') && A.Net != B.Net",
                     [f"(constraint hole_to_hole (min {val('pad_hole_diff')}))"]))
     if fab.flags.get("emit_implied_clearance"):
         out.append("")
+        out.append("# NOTE: KiCad applies the LAST matching rule, so the general \"implied\" rules below\n# must come before the specific ones they would otherwise override.")
+        out.append("")
         out.append(rule(f"{p}: Via/Pad to Via/Pad Clearance (Different Nets)",
                         "(A.Type == 'Pad' || A.Type == 'Via') && (B.Type == 'Pad' || B.Type == 'Via') && A.Net != B.Net",
                         [f"(constraint clearance (min {val('implied_diff')}))"],
-                        comment="Not stated specifically, but implied by other rules."))
+                        comment="NOTE: This is not stated specifically, but is implied by other rules."))
         out.append("")
         out.append(rule(f"{p}: Via/Pad Hole to Via/Pad Hole Clearance (Same Net)",
                         "(A.Type == 'Pad' || A.Type == 'Via') && (B.Type == 'Pad' || B.Type == 'Via') && A.Net == B.Net",
                         [f"(constraint hole_to_hole (min {val('implied_same_net')}))"],
-                        comment="Not stated specifically, but implied by other rules."))
+                        comment="NOTE: This is not stated specifically, but is implied by other rules."))
+    if has_val("via_same_net"):
+        out.append("")
+        out.append(rule(f"{p}: Via Hole to Via Hole Clearance (Same Net)",
+                        "A.Type == 'Via' && B.Type == 'Via' && A.Net == B.Net",
+                        [f"(constraint hole_to_hole (min {val('via_same_net')}))"]))
+    out.append("")
+    out.append(rule(
+        f"{p}: Via Hole to Pad Hole Clearance (Different Nets)",
+        "((A.Type == 'Via' && B.Type == 'Pad') || (A.Type == 'Pad' && B.Type == 'Via')) && A.Net != B.Net",
+        [f"(constraint hole_to_hole (min {val('via_pad_hole_diff')}))"],
+        comment=("NOTE: This is not stated specifically, but is implied by other rules.\n"
+                 "A via and a plated pad on different nets are not covered by either the\n"
+                 "via-to-via or the pad-to-pad hole spacing rule; the pair involves a pad\n"
+                 "hole, so the pad figure applies."
+                 if fab.flags.get("emit_implied_clearance") else "")))
+    out.append("")
+    out.append(rule(
+        f"{p}: Pad to Pad Clearance (Pad without Hole, Different Nets)",
+        "A.Type == 'Pad' && (A.Pad_Type != 'Through-hole' && A.Pad_Type != 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type != 'Through-hole' && B.Pad_Type != 'NPTH, mechanical') && A.Net != B.Net",
+        [f"(constraint clearance (min {val('pad_nohole_diff')}))"],
+        comment=("Specific rule: must sit after the general clearance rule above to take effect."
+                 if fab.flags.get("emit_implied_clearance") else "")))
     out.append("")
     out.append(rule(f"{p}: Via to Trace", "A.Type == 'Via' && B.Type == 'Track'",
                     [f"(constraint hole_clearance (min {val('via_to_trace')}))"]))
@@ -304,14 +346,21 @@ def generate(fab: Fab, variant: dict) -> str:
     out.append(rule(f"{p}: PTH to Trace",
                     "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated() && B.Type == 'Track'",
                     [f"(constraint hole_clearance (min {val('pth_to_trace')}))"]))
+    if has_inner and has_val("pth_to_trace_inner"):
+        out.append("")
+        out.append(rule(f"{p}: PTH to Trace (inner layer)",
+                        "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated() && B.Type == 'Track'",
+                        [f"(constraint hole_clearance (min {val('pth_to_trace_inner')}))"],
+                        layer="inner"))
     out.append("")
     out.append(rule(f"{p}: NPTH to Trace",
                     "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && !A.isPlated() && B.Type == 'Track'",
                     [f"(constraint hole_clearance (min {val('npth_to_trace')}))"]))
-    out.append("")
-    out.append(rule(f"{p}: NPTH to Copper (non-Track)",
-                    "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && !A.isPlated() && B.Type != 'Track'",
-                    [f"(constraint hole_clearance (min {val('npth_to_copper')}))"]))
+    if has_val("npth_to_copper"):
+        out.append("")
+        out.append(rule(f"{p}: NPTH to Copper (non-Track)",
+                        "A.Type == 'Pad' && A.Pad_Type == 'NPTH, mechanical' && !A.isPlated() && B.Type != 'Track'",
+                        [f"(constraint hole_clearance (min {val('npth_to_copper')}))"]))
     out.append("")
     out.append(rule(f"{p}: Pad to Trace",
                     "A.Type == 'Pad' && (A.Pad_Type == 'Through-hole' || A.Pad_Type == 'NPTH, mechanical') && B.Type == 'Track' && A.Net != B.Net",
@@ -325,18 +374,36 @@ def generate(fab: Fab, variant: dict) -> str:
 
     # --- Minimum Trace Width and Spacing ---
     out.append("\n\n# --- Minimum Trace Width and Spacing ---\n")
-    out.append(rule(f"{p}: Trace Width (Outer Layer)", "A.Type == 'Track'",
-                    [f"(constraint track_width (min {val('trace_width_outer')}))"], layer="outer"))
-    out.append("")
-    out.append(rule(f"{p}: Trace Spacing (Outer Layer)", "A.Type == 'Track' && B.Type == 'Track'",
-                    [f"(constraint clearance (min {val('trace_spacing_outer')}))"], layer="outer"))
-    if has_inner:
+    if fab.flags.get("merge_trace_layers"):
+        out.append(rule(f"{p}: Trace Width", "A.Type == 'Track'",
+                        [f"(constraint track_width (min {val('trace_width_outer')}))"]))
         out.append("")
-        out.append(rule(f"{p}: Trace Width (Inner Layer)", "A.Type == 'Track'",
-                        [f"(constraint track_width (min {val('trace_width_inner')}))"], layer="inner"))
+        out.append(rule(f"{p}: Trace Spacing", "A.Type == 'Track' && B.Type == 'Track'",
+                        [f"(constraint clearance (min {val('trace_spacing_outer')}))"]))
+    else:
+        out.append(rule(f"{p}: Trace Width (Outer Layer)", "A.Type == 'Track'",
+                        [f"(constraint track_width (min {val('trace_width_outer')}))"], layer="outer"))
         out.append("")
-        out.append(rule(f"{p}: Trace Spacing (Inner Layer)", "A.Type == 'Track' && B.Type == 'Track'",
-                        [f"(constraint clearance (min {val('trace_spacing_inner')}))"], layer="inner"))
+        out.append(rule(f"{p}: Trace Spacing (Outer Layer)", "A.Type == 'Track' && B.Type == 'Track'",
+                        [f"(constraint clearance (min {val('trace_spacing_outer')}))"], layer="outer"))
+        if has_inner:
+            out.append("")
+            out.append(rule(f"{p}: Trace Width (Inner Layer)", "A.Type == 'Track'",
+                            [f"(constraint track_width (min {val('trace_width_inner')}))"], layer="inner"))
+            out.append("")
+            out.append(rule(f"{p}: Trace Spacing (Inner Layer)", "A.Type == 'Track' && B.Type == 'Track'",
+                            [f"(constraint clearance (min {val('trace_spacing_inner')}))"], layer="inner"))
+    if fab.flags.get("emit_same_net_trace_spacing"):
+        out.append("")
+        out.append("\n".join([
+            "# As of KiCad 9.0.8, this incorrectly flags any kind of connection",
+            "# between tracks (even if the track continues straight on and is just",
+            "# split into two parts with \"Break Track\").",
+            f'# (rule "{p}: Same-net Trace Spacing"',
+            "# \t(condition \"A.Type == 'Track' && B.Type == 'Track'\")",
+            f"# \t(constraint physical_clearance (min {val('same_net_trace_spacing')}))",
+            "# )",
+        ]))
 
     # --- Impedance-Controlled Net Classes ---
     if fab.diffpairs:

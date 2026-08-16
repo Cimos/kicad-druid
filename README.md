@@ -35,7 +35,7 @@ See [COMPARISON.md](COMPARISON.md) for a side-by-side of every fab's rule values
 
 ### Impedance-controlled routing
 
-Every file ships net classes for impedance-controlled routing: `50R` (single-ended) and `60R_Diff` / `90R_Diff` / `100R_Diff` / `120R_Diff` (differential). Assign nets to the matching class in `Board Setup > Net Classes`; unassigned classes do nothing.
+PCBWay files ship net classes for impedance-controlled routing: `50R` (single-ended) and `60R_Diff` / `90R_Diff` / `100R_Diff` / `120R_Diff` (differential). Assign nets to the matching class in `Board Setup > Net Classes`; unassigned classes do nothing. JLCPCB files track the fab capability target rule-for-rule and do not add impedance presets.
 
 > ⚠️ The shipped width/gap values are **typical starting points for the fab's default stackup**. Impedance depends on your actual stackup — verify against the fab's impedance calculator and adjust the values for your order.
 

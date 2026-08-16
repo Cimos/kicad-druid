@@ -31,16 +31,21 @@ CONSTANT_ROWS = [
     ("npth_annular", "NPTH annular ring — min"),
     ("plated_slot_min", "Plated slot width — min"),
     ("nonplated_slot_min", "Non-plated slot width — min"),
-    ("hole_to_hole_diff", "Hole-to-hole, different nets"),
+    ("small_via_hole", "Small-via extra-cost hole threshold"),
+    ("small_via_diameter", "Small-via diameter to avoid extra cost"),
+    ("via_hole_diff", "Via hole-to-hole, different nets"),
+    ("via_pad_hole_diff", "Via hole-to-pad hole, different nets"),
     ("via_same_net", "Via hole-to-hole, same net"),
     ("pad_nohole_diff", "Pad-to-pad (no hole), different nets"),
     ("pad_hole_diff", "Pad hole-to-hole (with hole), different nets"),
     ("via_to_trace", "Via hole to trace"),
     ("pth_to_trace", "PTH hole to trace"),
+    ("pth_to_trace_inner", "PTH hole to trace (inner layer)"),
     ("npth_to_trace", "NPTH hole to trace"),
     ("npth_to_copper", "NPTH to copper (non-track)"),
     ("pad_to_trace", "Pad to trace"),
     ("bga_to_trace", "BGA to trace"),
+    ("same_net_trace_spacing", "Same-net trace spacing (disabled workaround)"),
     ("text_thickness", "Silk line width — min"),
     ("text_height", "Silk text height — min"),
     ("silk_clearance", "Pad to silkscreen"),
@@ -59,9 +64,13 @@ VARIANT_ROWS = [
 
 FLAG_ROWS = [
     ("avoid_kelvin_test", "Avoids JLCPCB 4-wire Kelvin test"),
+    ("avoid_small_via_extra_cost", "Avoids small-via extra cost"),
     ("allow_blind_buried", "Blind/buried vias allowed"),
+    ("enforce_plated_slot_ratio", "Enforces plated-slot length/width ratio"),
     ("emit_bga", "Ships a BGA fan-out rule"),
     ("emit_implied_clearance", "Ships implied catch-all clearances"),
+    ("merge_trace_layers", "Uses one trace limit for all copper layers"),
+    ("emit_same_net_trace_spacing", "Documents disabled same-net spacing workaround"),
 ]
 
 
@@ -78,6 +87,11 @@ def load_fabs() -> list:
 def merged(fab: Fab, variant: dict) -> dict:
     m = dict(fab.constants)
     m.update(variant.get("over", {}))
+    # A merged, unlayered trace rule applies the same value to inner copper.
+    # Reflect that effective value without storing unused inner overrides in TOML.
+    if fab.flags.get("merge_trace_layers") and variant["layers"] > 2:
+        m["trace_width_inner"] = m.get("trace_width_outer", "—")
+        m["trace_spacing_inner"] = m.get("trace_spacing_outer", "—")
     return m
 
 
