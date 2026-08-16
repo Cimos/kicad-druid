@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 import sys
 
 try:
@@ -61,6 +62,46 @@ FLAG_REQUIRES = {
     "emit_bga": ["bga_to_trace"],
 }
 
+# Every key that generate() consumes through val(...). Keep in sync with the
+# val() calls below — validate() rejects anything outside this set, so a
+# misspelled [constants] entry or [variant.over] override fails loudly instead
+# of silently falling back to the constant it failed to override.
+VALUE_KEYS = frozenset({
+    "drill_hole_min", "drill_hole_max",
+    "via_hole", "via_annular", "via_same_net", "via_to_trace",
+    "pth_hole_min", "pth_hole_max", "pth_annular", "pth_to_trace",
+    "npth_hole_min", "npth_annular", "npth_to_trace", "npth_to_copper",
+    "castellated_min", "kelvin_annular",
+    "plated_slot_min", "nonplated_slot_min",
+    "hole_to_hole_diff", "pad_nohole_diff", "pad_hole_diff",
+    "implied_diff", "implied_same_net",
+    "pad_to_trace", "bga_to_trace",
+    "trace_width_outer", "trace_spacing_outer",
+    "trace_width_inner", "trace_spacing_inner",
+    "text_thickness", "text_height", "silk_clearance", "edge_routed",
+})
+
+ALLOWED_FLAGS = frozenset(
+    {"avoid_kelvin_test", "allow_blind_buried", "emit_implied_clearance", "emit_bga"})
+VARIANT_KEYS = frozenset({"id", "label", "layers", "over"})
+DIFFPAIR_KEYS = frozenset({"name", "diff", "track_width", "gap"})
+
+# Every value in [constants] and [variant.over] is a dimension. This repo's
+# source of truth uses mm exclusively; a unit-less or malformed value is not a
+# style problem — KiCad silently discards the ENTIRE rule file when a
+# constraint carries a bare number, so it must never reach the output.
+DIMENSION_RE = re.compile(r"^(\d+(?:\.\d+)?)mm$")
+
+
+def check_dimension(owner: str, key: str, value) -> None:
+    m = DIMENSION_RE.match(value) if isinstance(value, str) else None
+    if not m:
+        raise ValueError(
+            f"{owner}: {key} = {value!r} is not a dimension — write a positive "
+            f'size with its unit, e.g. "0.15mm"')
+    if float(m.group(1)) == 0:
+        raise ValueError(f"{owner}: {key} must be greater than zero")
+
 
 def validate(fab: Fab) -> None:
     """Fail early and clearly on TOML mistakes rather than deep in generation."""
@@ -83,12 +124,55 @@ def validate(fab: Fab) -> None:
                 raise ValueError(
                     f"{fab.name}: flag '{flag}' is set but [constants] is missing {missing}")
 
+    unknown = sorted(set(fab.flags) - ALLOWED_FLAGS)
+    if unknown:
+        raise ValueError(
+            f"{fab.name}: unknown [flags] key(s) {unknown} — allowed: {sorted(ALLOWED_FLAGS)}")
+
+    unknown = sorted(set(fab.constants) - VALUE_KEYS)
+    if unknown:
+        raise ValueError(
+            f"{fab.name}: unknown [constants] key(s) {unknown} — see VALUE_KEYS in "
+            f"tools/generate_dru.py for the full vocabulary")
+    for key, value in fab.constants.items():
+        check_dimension(f"{fab.name} [constants]", key, value)
+
+    for v in fab.variants:
+        vid = v.get("id")
+        unknown = sorted(set(v) - VARIANT_KEYS)
+        if unknown:
+            raise ValueError(
+                f"{fab.name} {vid}: unknown [[variant]] key(s) {unknown} — "
+                f"allowed: {sorted(VARIANT_KEYS)}")
+        layers = v.get("layers")
+        if not isinstance(layers, int) or isinstance(layers, bool) or layers < 1:
+            raise ValueError(
+                f"{fab.name} {vid}: every [[variant]] needs 'layers' as a positive "
+                f"integer (e.g. layers = 4) — without it a multilayer variant would "
+                f"silently generate without its inner-layer rules")
+        over = v.get("over", {})
+        unknown = sorted(set(over) - VALUE_KEYS)
+        if unknown:
+            raise ValueError(
+                f"{fab.name} {vid}: unknown [variant.over] key(s) {unknown} — a "
+                f"misspelled override would silently fall back to the constant")
+        for key, value in over.items():
+            check_dimension(f"{fab.name} {vid} [variant.over]", key, value)
+
     for dp in fab.diffpairs:
         if "name" not in dp or "track_width" not in dp:
             raise ValueError(f"{fab.name}: every [[diffpair]] needs a name and track_width")
         if dp.get("diff") and "gap" not in dp:
             raise ValueError(
                 f"{fab.name}: differential net class '{dp['name']}' needs a gap")
+        unknown = sorted(set(dp) - DIFFPAIR_KEYS)
+        if unknown:
+            raise ValueError(
+                f"{fab.name} {dp['name']}: unknown [[diffpair]] key(s) {unknown} — "
+                f"allowed: {sorted(DIFFPAIR_KEYS)}")
+        for key in ("track_width", "gap"):
+            if key in dp:
+                check_dimension(f"{fab.name} {dp['name']} [[diffpair]]", key, dp[key])
 
 
 def rule(name: str, condition: str, constraints: list, comment: str = "", layer: str = "") -> str:
@@ -109,7 +193,10 @@ def generate(fab: Fab, variant: dict) -> str:
     p = fab.prefix
     over = variant.get("over", {})
     val = make_val(fab.constants, over, f"{fab.name} {variant.get('id', '?')}")
-    layers = variant.get("layers", 2)
+    # validate() guarantees 'layers' is present and a positive integer; no
+    # default here — a silent fallback is how a 4-layer variant once lost its
+    # inner-layer rules.
+    layers = variant["layers"]
     has_inner = layers > 2
 
     out: list = []

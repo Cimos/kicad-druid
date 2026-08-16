@@ -105,6 +105,39 @@ rejects(clone(variant=[]), "no [[variant]]")
 rejects(clone(flags={"emit_bga": True}), "bga_to_trace")
 rejects(clone(diffpair=[{"name": "100R_Diff", "diff": True, "track_width": "0.2mm"}]), "gap")
 
+# --- generator: value validation — every fault below once passed silently ---
+# A unit-less dimension makes KiCad discard the ENTIRE rule file (measured),
+# so validate() must refuse to emit one.
+rejects(clone(constants={"pth_annular": "0.15"}), "not a dimension")
+rejects(clone(constants={"pth_annular": "-0.09mm"}), "not a dimension")
+rejects(clone(constants={"pth_annular": "0.09mn"}), "not a dimension")
+rejects(clone(constants={"pth_annular": "0mm"}), "greater than zero")
+rejects(clone(constants={"pth_annular": 0.15}), "not a dimension")  # bare TOML float
+
+# Missing or misspelled 'layers' used to silently generate a multilayer
+# variant as 2-layer, dropping its inner-layer rules.
+rejects(clone(variant=[{"id": "a"}]), "layers")
+rejects(clone(variant=[{"id": "a", "layer": 4}]), "unknown [[variant]] key")
+rejects(clone(variant=[{"id": "a", "layers": 0}]), "positive integer")
+rejects(clone(variant=[{"id": "a", "layers": True}]), "positive integer")
+
+# Unknown keys used to be silently ignored — a misspelled override fell back
+# to the constant it was meant to replace.
+rejects(clone(constants={"pth_hole_mni": "9.9mm"}), "unknown [constants] key")
+rejects(clone(variant=[{"id": "a", "layers": 2, "over": {"pth_hole_mni": "9.9mm"}}]),
+        "unknown [variant.over] key")
+rejects(clone(flags={"emit_bag": True}), "unknown [flags] key")
+rejects(clone(diffpair=[{"name": "50R", "track_width": "0.2mm", "gpa": "0.15mm"}]),
+        "unknown [[diffpair]] key")
+rejects(clone(diffpair=[{"name": "50R", "track_width": "0.2"}]), "not a dimension")
+
+# Valid values must still pass: overrides, flags with their required keys.
+g.validate(g.Fab(clone(
+    flags={"avoid_kelvin_test": True},
+    constants={"kelvin_annular": "0.125mm"},
+    variant=[{"id": "a", "layers": 6, "over": {"trace_width_inner": "0.09mm"}}])))
+PASSED += 1
+
 # --- generator: round-trip — every generated file lints clean and balances parens ---
 import glob  # noqa: E402
 for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml")):
@@ -114,10 +147,17 @@ for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml")):
     g.validate(fab)
     for v in fab.variants:
         text = g.generate(fab, v)
-        errs = []
-        check(lint.check_paren_balance(text, errs), f"{fab.name} {v['id']}: balanced parens")
-        # 2-layer variants must not emit inner-layer trace rules
-        if v.get("layers", 2) <= 2:
-            check("Inner Layer" not in text, f"{fab.name} {v['id']}: no inner-layer rules on 2L")
+        check(lint_text(text, f"{fab.name}.kicad_dru") == [],
+              f"{fab.name} {v['id']}: generated file lints clean")
+        # Inner-layer rules must track the validated layer count exactly.
+        # Check the (layer inner) clauses themselves, not display text — and
+        # read v["layers"] directly: a .get() default here would share the
+        # very bug this guards against.
+        if v["layers"] <= 2:
+            check("(layer inner)" not in text,
+                  f"{fab.name} {v['id']}: no inner-layer rules on 2L")
+        else:
+            check(text.count("(layer inner)") == 2,
+                  f"{fab.name} {v['id']}: inner width and spacing rules present")
 
 print(f"OK — {PASSED} checks passed")
