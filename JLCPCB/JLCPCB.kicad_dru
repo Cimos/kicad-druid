@@ -122,15 +122,13 @@
 	(constraint hole_to_hole (min 0.2mm))
 )
 
-(rule "JLCPCB: Pad to Pad Clearance (Pad without Hole, Different Nets)"
-	(condition "A.Type == 'Pad' && (A.Pad_Type != 'Through-hole' && A.Pad_Type != 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type != 'Through-hole' && B.Pad_Type != 'NPTH, mechanical') && A.Net != B.Net")
-	(constraint clearance (min 0.15mm))
-)
-
 (rule "JLCPCB: Pad Hole to Pad Hole Clearance (Pad with Hole, Different Nets)"
 	(condition "A.Type == 'Pad' && (A.Pad_Type == 'Through-hole' || A.Pad_Type == 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type == 'Through-hole' || B.Pad_Type == 'NPTH, mechanical') && A.Net != B.Net")
 	(constraint hole_to_hole (min 0.45mm))
 )
+
+# NOTE: KiCad applies the LAST matching rule, so the general "implied" rules below
+# must come before the specific ones they would otherwise override.
 
 # NOTE: This is not stated specifically, but is implied by other rules.
 (rule "JLCPCB: Via/Pad to Via/Pad Clearance (Different Nets)"
@@ -142,6 +140,21 @@
 (rule "JLCPCB: Via/Pad Hole to Via/Pad Hole Clearance (Same Net)"
 	(condition "(A.Type == 'Pad' || A.Type == 'Via') && (B.Type == 'Pad' || B.Type == 'Via') && A.Net == B.Net")
 	(constraint hole_to_hole (min 0.254mm))
+)
+
+# NOTE: This is not stated specifically, but is implied by other rules.
+# A via and a plated pad on different nets are not covered by either the
+# via-to-via or the pad-to-pad hole spacing rule; the pair involves a pad
+# hole, so the pad figure applies.
+(rule "JLCPCB: Via Hole to Pad Hole Clearance (Different Nets)"
+	(condition "((A.Type == 'Via' && B.Type == 'Pad') || (A.Type == 'Pad' && B.Type == 'Via')) && A.Net != B.Net")
+	(constraint hole_to_hole (min 0.45mm))
+)
+
+# Specific rule: must sit after the general clearance rule above to take effect.
+(rule "JLCPCB: Pad to Pad Clearance (Pad without Hole, Different Nets)"
+	(condition "A.Type == 'Pad' && (A.Pad_Type != 'Through-hole' && A.Pad_Type != 'NPTH, mechanical') && B.Type == 'Pad' && (B.Pad_Type != 'Through-hole' && B.Pad_Type != 'NPTH, mechanical') && A.Net != B.Net")
+	(constraint clearance (min 0.15mm))
 )
 
 (rule "JLCPCB: Via to Trace"
@@ -190,8 +203,10 @@
 	# (constraint track_width (min 0.1mm))
   # 4-6 Layers (1oz and 0.5oz)
 	(constraint track_width (min 0.09mm))
-  # 1-6 Layers (2oz)
+  # 2 Layers (2oz)
 	# (constraint track_width (min 0.16mm))
+  # 4-6 Layers (2oz)
+	# (constraint track_width (min 0.15mm))
   # 2 Layers (2.5oz)
 	# (constraint track_width (min 0.2mm))
   # 2 Layers (3.5oz)
@@ -206,8 +221,10 @@
 	# (constraint clearance (min 0.1mm))
   # 4-6 Layers (1oz and 0.5oz)
 	(constraint clearance (min 0.09mm))
-  # 1-6 Layers (2oz)
+  # 2 Layers (2oz)
 	# (constraint clearance (min 0.16mm))
+  # 4-6 Layers (2oz)
+	# (constraint clearance (min 0.15mm))
   # 2 Layers (2.5oz)
 	# (constraint clearance (min 0.2mm))
   # 2 Layers (3.5oz)
