@@ -255,4 +255,36 @@ check("adds extra cost" not in pcbway and
       "Same-net Trace Spacing" not in pcbway,
       "PCBWay: JLCPCB-only rules are not emitted")
 
+# --- generator: orphan detection is repo-wide, not per fab directory ---
+# A deleted or renamed fab TOML used to leave its published .kicad_dru files
+# invisible to --check, because only directories of loadable TOMLs were
+# scanned.
+with tempfile.TemporaryDirectory() as d:
+    os.makedirs(os.path.join(d, "Alive"))
+    os.makedirs(os.path.join(d, "Deleted"))
+    alive = os.path.join(d, "Alive", "Alive.kicad_dru")
+    stale_file = os.path.join(d, "Deleted", "Deleted.kicad_dru")
+    for p in (alive, stale_file):
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("(version 1)\n")
+    check(g.find_orphans({alive}, d) == [stale_file],
+          "orphan scan finds files of a deleted fab")
+    check(g.find_orphans({alive, stale_file}, d) == [],
+          "orphan scan is quiet when every file is generated")
+    # nested files (e.g. tooling clutter) are out of scope for output_path
+    deep = os.path.join(d, "Alive", "sub")
+    os.makedirs(deep)
+    with open(os.path.join(deep, "x.kicad_dru"), "w", encoding="utf-8") as fh:
+        fh.write("(version 1)\n")
+    check(g.find_orphans({alive, stale_file}, d) == [],
+          "orphan scan only looks where output_path writes")
+
+# End to end: on the real repo, --check must currently report no orphans.
+check(g.find_orphans(set(
+          g.output_path(fab, v)
+          for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml"))
+          for fab in [g.Fab(__import__("tomllib").load(open(tp, "rb")))]
+          for v in fab.variants), g.ROOT) == [],
+      "repo has no orphaned .kicad_dru files")
+
 print(f"OK — {PASSED} checks passed")

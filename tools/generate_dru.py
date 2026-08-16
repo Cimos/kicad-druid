@@ -449,6 +449,17 @@ def generate(fab: Fab, variant: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def find_orphans(expected_paths: set, root: str) -> list:
+    """Every .kicad_dru one directory below root that no fab generates.
+
+    One level deep is where output_path() writes; scanning from root rather
+    than per fab directory means files survive detection even when their fab
+    TOML was deleted or renamed.
+    """
+    on_disk = set(glob.glob(os.path.join(root, "*", "*.kicad_dru")))
+    return sorted(on_disk - expected_paths)
+
+
 def output_path(fab: Fab, variant: dict) -> str:
     if variant["id"] == fab.default_variant:
         fname = f"{fab.name}.kicad_dru"
@@ -466,6 +477,7 @@ def main(argv: list) -> int:
 
     stale = []
     written = []
+    expected_all: dict = {}
     for tp in toml_paths:
         with open(tp, "rb") as fh:
             fab = Fab(tomllib.load(fh))
@@ -474,12 +486,7 @@ def main(argv: list) -> int:
         expected = {}
         for variant in fab.variants:
             expected[output_path(fab, variant)] = generate(fab, variant)
-
-        # Orphans: .kicad_dru files in the fab's dir that we no longer generate
-        # (e.g. left behind after a variant was renamed or removed).
-        fab_dir = os.path.join(ROOT, fab.name)
-        on_disk = set(glob.glob(os.path.join(fab_dir, "*.kicad_dru")))
-        orphans = sorted(on_disk - set(expected))
+        expected_all.update(expected)
 
         for path, text in expected.items():
             existing = None
@@ -495,13 +502,17 @@ def main(argv: list) -> int:
                     fh.write(text)
                 written.append(os.path.relpath(path, ROOT))
 
-        for orphan in orphans:
-            rel = os.path.relpath(orphan, ROOT)
-            if check:
-                stale.append(f"{rel} (orphaned — no matching variant)")
-            else:
-                os.remove(orphan)
-                print(f"removed orphan {rel}")
+    # Orphans: any .kicad_dru no loaded TOML generates. Scanned repo-wide, not
+    # per fab directory — a per-fab scan misses files left behind when a whole
+    # fab TOML is deleted or its [fab].name changes, leaving stale rules
+    # published while --check reports everything current.
+    for orphan in find_orphans(set(expected_all), ROOT):
+        rel = os.path.relpath(orphan, ROOT)
+        if check:
+            stale.append(f"{rel} (orphaned — no fab TOML generates it)")
+        else:
+            os.remove(orphan)
+            print(f"removed orphan {rel}")
 
     if check:
         if stale:
