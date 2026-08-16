@@ -1,10 +1,10 @@
 (version 1)
-# Custom Design Rules (DRC) for KiCad — JLCPCB: 4 layer, 1oz outer / 0.5oz inner
+# Custom Design Rules (DRC) for KiCad — JLCPCB: 4 layer, 2oz copper
 #
 # Matching JLCPCB capabilities: https://jlcpcb.com/capabilities/pcb-capabilities
 #
-# This is the '4L-1oz' variant. If your order differs, use one of
-# the other variants (2L-1oz, 4L-2oz, 6L-1oz) — see the README table.
+# This is the '4L-2oz' variant. If your order differs, use one of
+# the other variants (2L-1oz, 4L-1oz, 6L-1oz) — see the README table.
 #
 # GENERATED FILE — do not edit by hand.
 # Edit capabilities/JLCPCB.toml and run tools/generate_dru.py instead.
@@ -52,7 +52,7 @@
 
 (rule "JLCPCB: PTH Annular Ring"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()")
-	(constraint annular_width (min 0.15mm))
+	(constraint annular_width (min 0.254mm))
 )
 
 (rule "JLCPCB: NPTH Annular Ring"
@@ -178,12 +178,12 @@
 
 (rule "JLCPCB: Trace Width"
 	(condition "A.Type == 'Track'")
-	(constraint track_width (min 0.09mm))
+	(constraint track_width (min 0.15mm))
 )
 
 (rule "JLCPCB: Trace Spacing"
 	(condition "A.Type == 'Track' && B.Type == 'Track'")
-	(constraint clearance (min 0.09mm))
+	(constraint clearance (min 0.15mm))
 )
 
 # As of KiCad 9.0.8, this incorrectly flags any kind of connection

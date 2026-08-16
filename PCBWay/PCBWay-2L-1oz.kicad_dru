@@ -1,10 +1,10 @@
 (version 1)
-# Custom Design Rules (DRC) for KiCad — PCBWay: 4 layer, 1oz outer / 0.5oz inner
+# Custom Design Rules (DRC) for KiCad — PCBWay: 1-2 layer, 1oz copper
 #
 # Matching PCBWay capabilities: https://www.pcbway.com/capabilities.html
 #
-# This is the '4L-1oz' variant. If your order differs, use one of
-# the other variants (2L-1oz, 4L-2oz, 6L-1oz) — see the README table.
+# This is the '2L-1oz' variant. If your order differs, use one of
+# the other variants (4L-1oz, 4L-2oz, 6L-1oz) — see the README table.
 #
 # GENERATED FILE — do not edit by hand.
 # Edit capabilities/PCBWay.toml and run tools/generate_dru.py instead.
@@ -20,7 +20,7 @@
 
 (rule "PCBWay: Via Hole Size"
 	(condition "A.Type == 'Via'")
-	(constraint hole_size (min 0.2mm))
+	(constraint hole_size (min 0.3mm))
 )
 
 (rule "PCBWay: Via Annular Ring"
@@ -126,25 +126,13 @@
 (rule "PCBWay: Trace Width (Outer Layer)"
 	(layer outer)
 	(condition "A.Type == 'Track'")
-	(constraint track_width (min 0.09mm))
+	(constraint track_width (min 0.127mm))
 )
 
 (rule "PCBWay: Trace Spacing (Outer Layer)"
 	(layer outer)
 	(condition "A.Type == 'Track' && B.Type == 'Track'")
-	(constraint clearance (min 0.09mm))
-)
-
-(rule "PCBWay: Trace Width (Inner Layer)"
-	(layer inner)
-	(condition "A.Type == 'Track'")
-	(constraint track_width (min 0.1mm))
-)
-
-(rule "PCBWay: Trace Spacing (Inner Layer)"
-	(layer inner)
-	(condition "A.Type == 'Track' && B.Type == 'Track'")
-	(constraint clearance (min 0.1mm))
+	(constraint clearance (min 0.127mm))
 )
 
 

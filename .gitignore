@@ -28,3 +28,7 @@ tmp/
 
 # MacOS stuff
 .DS_Store
+
+# Python bytecode cache (from tools/*.py)
+__pycache__/
+*.pyc

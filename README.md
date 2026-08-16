@@ -11,19 +11,33 @@ The rules are authored against the KiCad 8 custom-rules syntax and are forward-c
 | JLCPCB | [`JLCPCB/`](JLCPCB/)  | https://jlcpcb.com/capabilities/pcb-capabilities  |
 | PCBWay | [`PCBWay/`](PCBWay/)  | https://www.pcbway.com/capabilities.html          |
 
-Each folder contains:
+Each folder contains one `.kicad_dru` per build variant, plus a small test board (`.kicad_pcb`, `.kicad_sch`, `.kicad_pro`) exercising the rules.
 
-- `<FAB>.kicad_dru` — the rule file you copy into your project
-- `<FAB>.kicad_pcb`, `.kicad_sch`, `.kicad_pro` — a small test board exercising the rules
+The rule files are **generated** from a single source of truth per fab (`capabilities/<FAB>.toml`) by `tools/generate_dru.py` — so there are no "uncomment the right variant" comment blocks to get wrong. Pick the whole file that matches what you're ordering:
+
+| File | Layers | Copper |
+|------|--------|--------|
+| `<FAB>.kicad_dru` | 4 (recommended default) | 1oz |
+| `<FAB>-2L-1oz.kicad_dru` | 1–2 | 1oz |
+| `<FAB>-4L-2oz.kicad_dru` | 4 | 2oz |
+| `<FAB>-6L-1oz.kicad_dru` | 6 | 1oz |
+
+> **Editing rules:** change `capabilities/<FAB>.toml` and re-run `python3 tools/generate_dru.py`. Do **not** hand-edit the generated `.kicad_dru` files — CI regenerates and fails if they drift from the source.
+
+See [COMPARISON.md](COMPARISON.md) for a side-by-side of every fab's rule values (also generated from the same source).
 
 ## Use in your project
 
-1. Copy the relevant `.kicad_dru` from `JLCPCB/` or `PCBWay/` into your KiCad project folder.
+1. Copy the `.kicad_dru` matching your order from `JLCPCB/` or `PCBWay/` into your KiCad project folder.
 2. Rename it to match your project: `your-project.kicad_dru`.
 3. KiCad picks it up automatically. View under `File > Board Setup > Design Rules > Custom Rules`.
 4. Run `Inspect > Design Rules Checker` (or press F8) to apply.
 
-Many rules have alternates commented out for different layer counts or copper weights. Read the comments at the top of each rule and uncomment the variant that matches what you're ordering.
+### Impedance-controlled routing
+
+PCBWay files ship net classes for impedance-controlled routing: `50R` (single-ended) and `60R_Diff` / `90R_Diff` / `100R_Diff` / `120R_Diff` (differential). Assign nets to the matching class in `Board Setup > Net Classes`; unassigned classes do nothing. JLCPCB files track the fab capability target rule-for-rule and do not add impedance presets.
+
+> ⚠️ The shipped width/gap values are **typical starting points for the fab's default stackup**. Impedance depends on your actual stackup — verify against the fab's impedance calculator and adjust the values for your order.
 
 ## Layer names
 
@@ -33,9 +47,15 @@ That failure is worse than it looks. An unresolvable layer name in a `(layer ...
 
 ## Validation
 
-Every `.kicad_dru` file is checked in CI by a small linter (`tools/lint_dru.py`, no dependencies) that catches malformed s-expressions, missing `(version 1)` headers, rules with no constraint, duplicate names, wrong fab prefixes, lowercase item-type literals (`'track'`/`'via'`/`'pad'`) that KiCad silently never matches, and layer names written in their display form (`F.Silkscreen` instead of `F.SilkS`) or matching no layer at all. Run it locally with:
+CI does two checks (both dependency-free Python):
+
+- **In-sync** — `python3 tools/generate_dru.py --check` fails if the committed `.kicad_dru` files don't match what `capabilities/*.toml` would generate.
+- **Lint** — `tools/lint_dru.py` catches malformed s-expressions, missing `(version 1)` headers, rules with no constraint, duplicate names, wrong fab prefixes, lowercase item-type literals (`'track'`/`'via'`/`'pad'`) that KiCad silently never matches, and layer names written in their display form (`F.Silkscreen` instead of `F.SilkS`) or matching no layer at all.
+
+Run them locally with:
 
 ```
+python3 tools/generate_dru.py --check
 python3 tools/lint_dru.py
 ```
 
@@ -44,6 +64,8 @@ The linter is a fast syntax/consistency gate — KiCad has no standalone `.kicad
 ```
 kicad-cli pcb drc --exit-code-violations --severity-error JLCPCB/JLCPCB.kicad_pcb
 ```
+
+A separate **DRC** workflow (`.github/workflows/drc.yml`) installs KiCad and runs this against each fab's default board on demand and on board/rule changes, publishing the report as an artifact. It's **informational, not a gate** — the test boards intentionally contain passing and failing footprints, so violations are expected.
 
 ## KiCad documentation
 
