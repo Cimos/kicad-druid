@@ -15,12 +15,12 @@
 # --- Drill/Hole Size ---
 
 (rule "JLCPCB: Drill Hole Size"
-	(constraint hole_size (min 0.2mm) (max 6.3mm))
+	(constraint hole_size (min 0.15mm) (max 6.3mm))
 )
 
 (rule "JLCPCB: Via Hole Size"
 	(condition "A.Type == 'Via'")
-	(constraint hole_size (min 0.2mm))
+	(constraint hole_size (min 0.15mm))
 )
 
 (rule "JLCPCB: Via Annular Ring"
@@ -36,7 +36,7 @@
 
 (rule "JLCPCB: PTH Hole Size"
 	(condition "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()")
-	(constraint hole_size (min 0.2mm) (max 6.3mm))
+	(constraint hole_size (min 0.15mm) (max 6.3mm))
 )
 
 (rule "JLCPCB: NPTH Hole Size"
@@ -47,7 +47,7 @@
 (rule "JLCPCB: Castellated Hole Size"
 	(layer outer)
 	(condition "A.Type == 'Pad' && A.Fabrication_Property == 'Castellated pad'")
-	(constraint hole_size (min 0.6mm))
+	(constraint hole_size (min 0.5mm))
 )
 
 (rule "JLCPCB: PTH Annular Ring"
@@ -79,7 +79,7 @@
 
 (rule "JLCPCB: Plated Slot Width"
 	(condition "A.Type == 'Pad' && (A.Hole_Size_X != A.Hole_Size_Y) && A.isPlated()")
-	(constraint hole_size (min 0.5mm))
+	(constraint hole_size (min 0.35mm))
 )
 
 # JLCPCB: "The length of the slot should be at least 2 times of the width."
@@ -259,5 +259,5 @@
 
 (rule "JLCPCB: Trace to Board Edge"
 	(condition "A.Type == 'Track'")
-	(constraint edge_clearance (min 0.3mm))
+	(constraint edge_clearance (min 0.2mm))
 )

@@ -13,13 +13,13 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`.
 |---|---|---|
 | Drill hole — max | 6.3mm | 6.3mm |
 | Via annular ring — min | 0.05mm | 0.15mm |
-| PTH hole — min | 0.2mm | 0.2mm |
+| PTH hole — min | 0.15mm | 0.2mm |
 | PTH hole — max | 6.3mm | 6.35mm |
 | NPTH hole — min | 0.5mm | 0.5mm |
-| Castellated hole — min | 0.6mm | 0.6mm |
+| Castellated hole — min | 0.5mm | 0.6mm |
 | PTH annular ring — min | 0.15mm | 0.15mm |
 | NPTH annular ring — min | 0.45mm | 0.25mm |
-| Plated slot width — min | 0.5mm | 0.5mm |
+| Plated slot width — min | 0.35mm | 0.5mm |
 | Non-plated slot width — min | 1.0mm | 0.8mm |
 | Small-via extra-cost hole threshold | 0.3mm | — |
 | Small-via diameter to avoid extra cost | 0.45mm | — |
@@ -39,7 +39,7 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`.
 | Silk line width — min | 0.15mm | 0.15mm |
 | Silk text height — min | 1mm | 0.8mm |
 | Pad to silkscreen | 0.15mm | 0.15mm |
-| Trace to board edge (routed) | 0.3mm | 0.3mm |
+| Trace to board edge (routed) | 0.2mm | 0.3mm |
 
 ## By build variant
 
@@ -48,9 +48,9 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`.
 | Variant | Drill hole — min | Via hole — min | Trace width (outer) | Trace spacing (outer) | Trace width (inner) | Trace spacing (inner) |
 |---|---|---|---|---|---|---|
 | `2L-1oz` | 0.3mm | 0.3mm | 0.1mm | 0.1mm | — | — |
-| `4L-1oz` (default) | 0.2mm | 0.2mm | 0.09mm | 0.09mm | 0.09mm | 0.09mm |
-| `4L-2oz` | 0.2mm | 0.2mm | 0.15mm | 0.15mm | 0.15mm | 0.15mm |
-| `6L-1oz` | 0.2mm | 0.2mm | 0.09mm | 0.09mm | 0.09mm | 0.09mm |
+| `4L-1oz` (default) | 0.15mm | 0.15mm | 0.09mm | 0.09mm | 0.09mm | 0.09mm |
+| `4L-2oz` | 0.15mm | 0.15mm | 0.15mm | 0.15mm | 0.15mm | 0.15mm |
+| `6L-1oz` | 0.15mm | 0.15mm | 0.09mm | 0.09mm | 0.09mm | 0.09mm |
 
 ### PCBWay
 
