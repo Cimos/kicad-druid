@@ -6,6 +6,16 @@ Thanks for taking the time to contribute. This repo is small but used by a lot o
 
 KiCad 8.0 and later. Rules use features that don't exist in KiCad 7.
 
+## Test board format
+
+The test boards are KiCad 9 format. Opening and saving them from KiCad 9 or 10 is fine;
+KiCad 8 cannot open them. This only affects the boards — the rules still work on KiCad 8, 9
+and 10.
+
+A PR that changes a rule value is not expected to touch the boards. Only a PR that adds a
+rule needs to add an object for it. See [JLCPCB/TESTBOARD.md](JLCPCB/TESTBOARD.md) for what
+each object on the JLCPCB board is for.
+
 ## Adding or updating a rule
 
 Every rule must be backed by a specific, citable line in the fab's published capabilities. Drive-by tweaks based on personal experience belong in your own project, not here.
