@@ -93,7 +93,6 @@
 )
 
 (rule "Generic: Castellated Hole Size"
-	(layer outer)
 	(condition "A.Type == 'Pad' && A.Fabrication_Property == 'Castellated pad'")
 	(constraint hole_size (min 0.6mm))
 )
