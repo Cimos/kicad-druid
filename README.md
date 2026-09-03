@@ -4,6 +4,8 @@ KiCad custom design rules (`.kicad_dru`) that match the manufacturing capabiliti
 
 The rules are authored against the KiCad 8 custom-rules syntax and are forward-compatible with **KiCad 9 and 10** — every token used here is unchanged across those releases (KiCad 9/10 only add new constraints on top). If you're on KiCad 8, 9, or 10, they just work.
 
+The paired test boards are saved in KiCad 9 format and need KiCad 9 or later to open, while the rules themselves still work on 8, 9 and 10 — see [JLCPCB/TESTBOARD.md](JLCPCB/TESTBOARD.md) for what each object on the JLCPCB board exercises.
+
 ## Supported fabs
 
 | Fab    | Folder                | Source of capabilities                            |
