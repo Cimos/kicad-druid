@@ -324,14 +324,13 @@ def generate(fab: Fab, variant: dict) -> str:
                         [f"(constraint hole_to_hole (min {val('via_same_net')}))"]))
     out.append("")
     out.append(rule(
-        f"{p}: Via Hole to Pad Hole Clearance (Different Nets)",
+        f"{p}: Via Hole to Pad Hole Clearance (Different Nets, inferred)",
         "((A.Type == 'Via' && B.Type == 'Pad') || (A.Type == 'Pad' && B.Type == 'Via')) && A.Net != B.Net",
         [f"(constraint hole_to_hole (min {val('via_pad_hole_diff')}))"],
-        comment=("NOTE: This is not stated specifically, but is implied by other rules.\n"
-                 "A via and a plated pad on different nets are not covered by either the\n"
-                 "via-to-via or the pad-to-pad hole spacing rule; the pair involves a pad\n"
-                 "hole, so the pad figure applies."
-                 if fab.flags.get("emit_implied_clearance") else "")))
+        comment=("NOTE: Inferred from the pad-to-pad hole figure; not documented by the fab.\n"
+                 "A via and a plated pad on different nets are covered by neither the\n"
+                 "via-to-via nor the pad-to-pad hole spacing rule; the pair involves a pad\n"
+                 "hole, so the pad figure applies.")))
     out.append("")
     out.append(rule(
         f"{p}: Pad to Pad Clearance (Pad without Hole, Different Nets)",
