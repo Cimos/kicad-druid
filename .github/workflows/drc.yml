@@ -53,17 +53,21 @@ jobs:
           for dru in JLCPCB/*.kicad_dru PCBWay/*.kicad_dru Generic/*.kicad_dru; do
             name="$(basename "$dru" .kicad_dru)"
             fab="$(dirname "$dru")"
+            # PCBWay's own board is empty (no tracks, no outline) until #14
+            # lands, so it borrows the JLCPCB board too, with its own project
+            # file. Drop that line once PCBWay/PCBWay.kicad_pcb has content.
             case "$fab" in
-              Generic) src=JLCPCB/JLCPCB ;;
-              *)       src="$fab/$(basename "$fab")" ;;
+              Generic) board=JLCPCB/JLCPCB; pro=JLCPCB/JLCPCB ;;
+              PCBWay)  board=JLCPCB/JLCPCB; pro=PCBWay/PCBWay ;;
+              *)       board="$fab/$(basename "$fab")"; pro="$board" ;;
             esac
-            if [ ! -s "$src.kicad_pcb" ]; then
-              echo "skip $dru (no board at $src.kicad_pcb)"
+            if [ ! -s "$board.kicad_pcb" ]; then
+              echo "skip $dru (no board at $board.kicad_pcb)"
               continue
             fi
             mkdir -p ".drc/$name"
-            cp "$src.kicad_pcb" ".drc/$name/$name.kicad_pcb"
-            cp "$src.kicad_pro" ".drc/$name/$name.kicad_pro"
+            cp "$board.kicad_pcb" ".drc/$name/$name.kicad_pcb"
+            cp "$pro.kicad_pro" ".drc/$name/$name.kicad_pro"
             cp "$dru" ".drc/$name/$name.kicad_dru"
             cat >> ".drc/$name/$name.kicad_dru" <<'DRU'
 
