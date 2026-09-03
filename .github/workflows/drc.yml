@@ -41,6 +41,7 @@ jobs:
           # against the JLCPCB rules still fires here.
           mkdir -p .drc/Generic
           cp JLCPCB/JLCPCB.kicad_pcb .drc/Generic/Generic.kicad_pcb
+          cp JLCPCB/JLCPCB.kicad_pro .drc/Generic/Generic.kicad_pro
           cp Generic/Generic.kicad_dru .drc/Generic/Generic.kicad_dru
 
       - name: Run DRC on each fab's default board
