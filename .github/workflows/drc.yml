@@ -1,20 +1,28 @@
 name: DRC
 
-# Runs KiCad's electrical Design Rule Check against each fab's test board with
-# its generated .kicad_dru, and publishes the report.
+# Runs KiCad's electrical Design Rule Check against a fab test board with every
+# generated .kicad_dru, and publishes the reports.
 #
-# INFORMATIONAL, not a gate: the test boards intentionally contain footprints
-# that pass and fail each rule, so violations are expected. The job does not use
-# --exit-code-violations, so it stays green; read the uploaded report / job
-# summary to see what fired. (Syntax of the rule files is gated separately by
-# lint.yml.)
+# Violations are INFORMATIONAL, not a gate: the test boards intentionally
+# contain footprints that pass and fail each rule, so violations are expected.
+# The job does not use --exit-code-violations.
+#
+# The one gate here is the sentinel. kicad-cli reports a rules file KiCad could
+# not compile as a clean run: no message, exit code 0. So each file under test
+# gets a sentinel rule appended at the end that must always fire, and the job
+# fails if its violation is missing. The sentinel goes last on purpose: an
+# unknown property or a unit-less literal drops that rule and everything after
+# it, and an unknown constraint or layer drops the whole file, so a missing
+# sentinel means the file did not compile in full. (Rule file syntax and layer
+# names are gated separately by lint.yml.)
 
 on:
   workflow_dispatch: {}
   pull_request:
     paths:
-      - "**/*.kicad_dru"
-      - "**/*.kicad_pcb"
+      - "JLCPCB/**"
+      - "PCBWay/**"
+      - "Generic/**"
       - ".github/workflows/drc.yml"
 
 jobs:
@@ -25,33 +33,62 @@ jobs:
 
       - name: Install KiCad (kicad-cli)
         run: |
-          sudo add-apt-repository --yes ppa:kicad/kicad-8.0-releases
+          sudo add-apt-repository --yes ppa:kicad/kicad-9.0-releases
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends kicad
           kicad-cli version
 
-      - name: Stage a board for the Generic rules
+      - name: Stage a board for every rule file
         run: |
           set -eu
-          # Generic/ ships rules only. kicad-cli reads the custom rules from
-          # <board>.kicad_dru next to the board, so DRC needs a board named
-          # Generic. The JLCPCB board is used: it exercises the widest set of
-          # rules (Kelvin holes, castellated pads, slots), and Generic is at
-          # least as strict as JLCPCB on every limit, so everything that fires
-          # against the JLCPCB rules still fires here.
-          mkdir -p .drc/Generic
-          cp JLCPCB/JLCPCB.kicad_pcb .drc/Generic/Generic.kicad_pcb
-          cp JLCPCB/JLCPCB.kicad_pro .drc/Generic/Generic.kicad_pro
-          cp Generic/Generic.kicad_dru .drc/Generic/Generic.kicad_dru
-
-      - name: Run DRC on each fab's default board
-        run: |
-          set -u
-          for board in JLCPCB/JLCPCB.kicad_pcb PCBWay/PCBWay.kicad_pcb .drc/Generic/Generic.kicad_pcb; do
-            if [ ! -s "$board" ]; then
-              echo "skip $board (missing or empty)"
+          # kicad-cli reads the custom rules from <board>.kicad_dru next to the
+          # board, so each rule file gets its own scratch directory holding a
+          # copy of a test board and project renamed to match.
+          #
+          # Generic/ ships rules only, so it borrows the JLCPCB board: it
+          # exercises the widest set of rules (Kelvin holes, castellated pads,
+          # slots), and Generic is at least as strict as JLCPCB on every limit,
+          # so everything that fires against the JLCPCB rules still fires here.
+          rm -rf .drc
+          for dru in JLCPCB/*.kicad_dru PCBWay/*.kicad_dru Generic/*.kicad_dru; do
+            name="$(basename "$dru" .kicad_dru)"
+            fab="$(dirname "$dru")"
+            # PCBWay's own board is empty (no tracks, no outline) until #14
+            # lands, so it borrows the JLCPCB board too, with its own project
+            # file. Drop that line once PCBWay/PCBWay.kicad_pcb has content.
+            case "$fab" in
+              Generic) board=JLCPCB/JLCPCB; pro=JLCPCB/JLCPCB ;;
+              PCBWay)  board=JLCPCB/JLCPCB; pro=PCBWay/PCBWay ;;
+              *)       board="$fab/$(basename "$fab")"; pro="$board" ;;
+            esac
+            if [ ! -s "$board.kicad_pcb" ]; then
+              echo "skip $dru (no board at $board.kicad_pcb)"
               continue
             fi
+            mkdir -p ".drc/$name"
+            cp "$board.kicad_pcb" ".drc/$name/$name.kicad_pcb"
+            cp "$pro.kicad_pro" ".drc/$name/$name.kicad_pro"
+            cp "$dru" ".drc/$name/$name.kicad_dru"
+            cat >> ".drc/$name/$name.kicad_dru" <<'DRU'
+
+          # Appended by CI. No track on the board is 100mm wide, so this fires
+          # on every track; if its violation is missing from the report, KiCad
+          # discarded part or all of the rules file. An assertion is used
+          # because KiCad names the rule in an assertion's description; a
+          # track_width violation is reported as a board setup constraint
+          # with no rule name, which the check below could not match.
+          (rule "SENTINEL: rules file compiled"
+          	(condition "A.Type == 'Track'")
+          	(constraint assertion "A.Width > 100mm")
+          )
+          DRU
+            echo "staged $dru -> .drc/$name/$name.kicad_pcb"
+          done
+
+      - name: Run DRC on every rule file
+        run: |
+          set -eu
+          for board in .drc/*/*.kicad_pcb; do
             echo "== DRC $board =="
             # No --exit-code-violations: expected violations must not fail the job.
             kicad-cli pcb drc \
@@ -61,14 +98,55 @@ jobs:
               "$board"
           done
 
+      - name: Check the sentinel fired in every report
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, json, sys
+
+          rows, missing = [], []
+          reports = sorted(glob.glob(".drc/*/*.drc.json"))
+          if not reports:
+              sys.exit("No DRC reports were produced.")
+
+          for path in reports:
+              name = path.split("/")[1]
+              try:
+                  data = json.load(open(path))
+              except Exception as exc:
+                  rows.append((name, "unreadable", "no"))
+                  missing.append(f"{name}.kicad_dru (report unreadable: {exc})")
+                  continue
+              violations = data.get("violations", [])
+              found = any(
+                  "SENTINEL" in (v.get("description") or "") for v in violations
+              )
+              rows.append((name, str(len(violations)), "yes" if found else "no"))
+              if not found:
+                  missing.append(f"{name}.kicad_dru")
+
+          width = max(len(r[0]) for r in rows)
+          print(f"{'rule file'.ljust(width)}  violations  sentinel")
+          for name, count, found in rows:
+              print(f"{name.ljust(width)}  {count.rjust(10)}  {found}")
+
+          if missing:
+              print()
+              sys.exit(
+                  "No SENTINEL violation in: "
+                  + ", ".join(missing)
+                  + " - KiCad discarded part or all of the rules file."
+              )
+          PY
+
       - name: Summarise reports
         if: always()
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import glob, json, os
+          import glob, json
           print("# DRC report\n")
           found = False
-          for f in sorted(glob.glob("**/*.drc.json", recursive=True)):
+          for f in sorted(glob.glob(".drc/*/*.drc.json")):
               found = True
               try:
                   data = json.load(open(f))
@@ -93,5 +171,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: drc-reports
-          path: "**/*.drc.json"
+          path: ".drc/*/*.drc.json"
+          include-hidden-files: true
           if-no-files-found: ignore
