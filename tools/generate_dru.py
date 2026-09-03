@@ -39,6 +39,18 @@ class Fab:
         self.constants = data.get("constants", {})
         self.variants = data.get("variant", [])
         self.diffpairs = data.get("diffpair", [])
+        # Header text. A fab read from TOML points at its own TOML; a derived
+        # fab (see build_generic) replaces these with where it really came from.
+        self.intro_lines = [f"Matching {self.name} capabilities: {self.url}"]
+        self.edit_note = [
+            f"Edit capabilities/{self.name}.toml and run tools/generate_dru.py instead."]
+        self.notes: list = []
+        # Who a quoted capability line and the impedance warning name. For a
+        # derived fab these are not the fab itself.
+        self.flag_sources: dict = {}
+        self.impedance_owner = self.name
+        # variant id -> lines naming the fab behind each value.
+        self.value_sources: dict = {}
 
 
 def make_val(constants: dict, over: dict, label: str = ""):
@@ -186,6 +198,212 @@ def validate(fab: Fab) -> None:
                 check_dimension(f"{fab.name} {dp['name']} [[diffpair]]", key, dp[key])
 
 
+# --- The derived "Generic" fab ---------------------------------------------
+#
+# Generic is not a fab and has no capabilities/Generic.toml: it is computed
+# from the fab TOMLs every time the generator runs. For each limit it keeps
+# whichever fab is harder to satisfy, so a board that passes the Generic rules
+# passes at either fab. That is what a board designed before the fab is picked
+# needs; the cost is that no limit is ever relaxed to the easier fab's figure.
+
+GENERIC_NAME = "Generic"
+
+# How each value key combines across fabs. A key that feeds a `(min ...)`
+# constraint is strictest at its LARGEST value; a key that feeds a `(max ...)`
+# constraint is strictest at its SMALLEST. Only two keys feed a max: the upper
+# end of the two hole_size ranges.
+#
+# small_via_hole feeds no constraint — it is the hole size below which JLCPCB
+# charges extra, used in a condition. A larger threshold catches more vias, so
+# it behaves like a min key. Everything else is a plain `(min ...)`.
+MAX_KEYS = frozenset({"drill_hole_max", "pth_hole_max"})
+MIN_KEYS = frozenset(VALUE_KEYS - MAX_KEYS)
+
+# When a fab publishes one trace limit for every copper layer, that limit is
+# also what it allows on inner copper — so it still has a say in the inner
+# value even though it carries no inner key of its own.
+MERGED_INNER_SOURCE = {
+    "trace_width_inner": "trace_width_outer",
+    "trace_spacing_inner": "trace_spacing_outer",
+}
+
+# Flags are combined so Generic emits every rule that either fab emits. Most
+# flags add a rule when true, so they are OR-ed. These two take rules away:
+# allow_blind_buried drops the through-hole-only assertion, and
+# merge_trace_layers replaces the outer/inner trace rules with one unlayered
+# rule that cannot carry a separate, stricter inner limit. They are only kept
+# when every fab sets them.
+FLAGS_KEPT_ONLY_IF_ALL = frozenset({"allow_blind_buried", "merge_trace_layers"})
+
+# Ranges whose two ends can now come from different fabs.
+RANGE_PAIRS = [("drill_hole_min", "drill_hole_max"), ("pth_hole_min", "pth_hole_max")]
+
+
+def mm(value: str) -> float:
+    m = DIMENSION_RE.match(value)
+    if not m:
+        raise ValueError(f"{value!r} is not a dimension")
+    return float(m.group(1))
+
+
+def variant_by_id(fab: Fab, vid: str):
+    for v in fab.variants:
+        if v["id"] == vid:
+            return v
+    return None
+
+
+def resolve(fab: Fab, variant: dict) -> dict:
+    """Every value one variant of one fab ends up with."""
+    m = dict(fab.constants)
+    m.update(variant.get("over", {}))
+    return m
+
+
+def strictest(key: str, candidates: list):
+    """Return (value, [fab names]) for the harder-to-satisfy candidate."""
+    pick = max if key in MIN_KEYS else min
+    best = pick(mm(v) for _, v in candidates)
+    winners = [(n, v) for n, v in candidates if mm(v) == best]
+    return winners[0][1], [n for n, _ in winners]
+
+
+def build_generic(fabs: list) -> Fab:
+    """Combine the loaded fabs into the Generic pseudo-fab."""
+    if len(fabs) < 2:
+        raise ValueError("Generic needs at least two fabs to combine")
+    names = [f.name for f in fabs]
+
+    # Only the variants every fab offers; order follows the first fab.
+    ids = [v["id"] for v in fabs[0].variants
+           if all(variant_by_id(f, v["id"]) for f in fabs[1:])]
+    if not ids:
+        raise ValueError("Generic: the fabs share no variant id")
+
+    flags = {}
+    for flag in sorted(ALLOWED_FLAGS):
+        set_by = [bool(f.flags.get(flag)) for f in fabs]
+        flags[flag] = all(set_by) if flag in FLAGS_KEPT_ONLY_IF_ALL else any(set_by)
+
+    chosen_by_variant = {}  # variant id -> {key: (value, [fab names])}
+    for vid in ids:
+        maps = {f.name: resolve(f, variant_by_id(f, vid)) for f in fabs}
+        keys = set()
+        for m in maps.values():
+            keys |= set(m)
+        chosen = {}
+        for key in sorted(keys):
+            candidates = []
+            for f in fabs:
+                m = maps[f.name]
+                if key in m:
+                    candidates.append((f.name, m[key]))
+                elif (key in MERGED_INNER_SOURCE
+                      and f.flags.get("merge_trace_layers")
+                      and MERGED_INNER_SOURCE[key] in m):
+                    candidates.append((f.name, m[MERGED_INNER_SOURCE[key]]))
+            chosen[key] = strictest(key, candidates)
+        for lo, hi in RANGE_PAIRS:
+            if lo in chosen and hi in chosen and mm(chosen[lo][0]) > mm(chosen[hi][0]):
+                raise ValueError(
+                    f"Generic {vid}: {lo} ({chosen[lo][0]}) is above {hi} "
+                    f"({chosen[hi][0]}) — the fabs leave no usable range")
+        chosen_by_variant[vid] = chosen
+
+    # A key with the same value in every variant is a constant; the rest are
+    # per-variant overrides, the same split the fab TOMLs use.
+    shared = set.intersection(*(set(chosen_by_variant[i]) for i in ids))
+    constants = {}
+    for key in sorted(shared):
+        values = {chosen_by_variant[i][key][0] for i in ids}
+        if len(values) == 1:
+            constants[key] = values.pop()
+
+    variants = []
+    for vid in ids:
+        layers = {variant_by_id(f, vid)["layers"] for f in fabs}
+        if len(layers) != 1:
+            raise ValueError(
+                f"Generic {vid}: fabs disagree on the layer count {sorted(layers)}")
+        variants.append({
+            "id": vid,
+            "label": variant_by_id(fabs[0], vid)["label"],
+            "layers": layers.pop(),
+            "over": {k: v for k, (v, _) in sorted(chosen_by_variant[vid].items())
+                     if k not in constants},
+        })
+
+    class_names = []
+    for f in fabs:
+        for dp in f.diffpairs:
+            if dp["name"] not in class_names:
+                class_names.append(dp["name"])
+    diffpairs = []
+    for cn in class_names:
+        entries = [dp for f in fabs for dp in f.diffpairs if dp["name"] == cn]
+        merged = {
+            "name": cn,
+            "diff": any(dp.get("diff") for dp in entries),
+            "track_width": max((dp["track_width"] for dp in entries), key=mm),
+        }
+        if merged["diff"]:
+            merged["gap"] = max((dp["gap"] for dp in entries if "gap" in dp), key=mm)
+        diffpairs.append(merged)
+
+    default = fabs[0].default_variant if fabs[0].default_variant in ids else ids[0]
+    generic = Fab({
+        "fab": {"name": GENERIC_NAME, "prefix": GENERIC_NAME,
+                "capabilities_url": "", "default_variant": default},
+        "flags": flags,
+        "constants": constants,
+        "variant": variants,
+        "diffpair": diffpairs,
+    })
+    generic.intro_lines = [
+        "The strictest of " + " and ".join(names) + ". Every limit is the harder of",
+        "the two, so a board that passes these rules passes at either fab. Use it",
+        "while the fab is still open. Nothing is relaxed to the easier figure, so a",
+        "board built to it can cost more than one built to a single fab's file.",
+    ] + [f"{f.name} capabilities: {f.url}" for f in fabs]
+    generic.edit_note = [
+        "Derived in code from "
+        + " and ".join(f"capabilities/{f.name}.toml" for f in fabs) + " by",
+        "tools/generate_dru.py. There is no capabilities/Generic.toml.",
+    ]
+    # A quoted capability line belongs to the fab that published it, not to
+    # Generic, and the impedance figures suit neither fab's stackup in
+    # particular.
+    for flag in flags:
+        setters = [f.name for f in fabs if f.flags.get(flag)]
+        if setters:
+            generic.flag_sources[flag] = " and ".join(setters)
+    generic.impedance_owner = "your fab"
+    generic.notes = [
+        "Where the fabs give a different width or gap for the same impedance net",
+        "class, the wider track and the larger gap are used.",
+    ]
+    for vid in ids:
+        generic.value_sources[vid] = [
+            f"{key}: {value} ({', '.join(src)})"
+            for key, (value, src) in sorted(chosen_by_variant[vid].items())
+        ]
+    validate(generic)
+    return generic
+
+
+def load_fabs(root: str = ROOT) -> list:
+    """Every fab TOML, plus the Generic fab derived from them."""
+    fabs = []
+    for tp in sorted(glob.glob(os.path.join(root, "capabilities", "*.toml"))):
+        with open(tp, "rb") as fh:
+            fab = Fab(tomllib.load(fh))
+        validate(fab)
+        fabs.append(fab)
+    if len(fabs) > 1:
+        fabs.append(build_generic(fabs))
+    return fabs
+
+
 def rule(name: str, condition: str, constraints: list, comment: str = "", layer: str = "") -> str:
     lines = []
     if comment:
@@ -217,7 +435,7 @@ def generate(fab: Fab, variant: dict) -> str:
     out.append("(version 1)")
     out.append(f"# Custom Design Rules (DRC) for KiCad — {fab.name}: {variant['label']}")
     out.append("#")
-    out.append(f"# Matching {fab.name} capabilities: {fab.url}")
+    out.extend(f"# {line}" for line in fab.intro_lines)
     others = [v["id"] for v in fab.variants if v.get("id") != variant.get("id")]
     if others:
         out.append("#")
@@ -225,7 +443,15 @@ def generate(fab: Fab, variant: dict) -> str:
         out.append(f"# the other variants ({', '.join(others)}) — see the README table.")
     out.append("#")
     out.append("# GENERATED FILE — do not edit by hand.")
-    out.append(f"# Edit capabilities/{fab.name}.toml and run tools/generate_dru.py instead.")
+    out.extend(f"# {line}" for line in fab.edit_note)
+    if fab.notes:
+        out.append("#")
+        out.extend(f"# {line}" for line in fab.notes)
+    sources = fab.value_sources.get(variant["id"])
+    if sources:
+        out.append("#")
+        out.append("# Where each value came from:")
+        out.extend(f"# {line}" for line in sources)
     out.append("#")
     out.append("# KiCad documentation: https://docs.kicad.org/8.0/en/pcbnew/pcbnew.html#custom-design-rules")
 
@@ -302,7 +528,8 @@ def generate(fab: Fab, variant: dict) -> str:
             f"{p}: Plated Slot Length-to-width Ratio",
             "(A.Type == 'Pad')",
             ['(constraint assertion "(A.Hole_Size_X == A.Hole_Size_Y) || (A.Hole_Size_X >= (2 * A.Hole_Size_Y)) || (A.Hole_Size_Y >= (2 * A.Hole_Size_X))")'],
-            comment=f'{fab.name}: "The length of the slot should be at least 2 times of the width."'))
+            comment='%s: "The length of the slot should be at least 2 times of the width."'
+                    % fab.flag_sources.get("enforce_plated_slot_ratio", fab.name)))
     out.append("")
     out.append(rule(f"{p}: Non-Plated Slot Width",
                     "A.Type == 'Pad' && (A.Hole_Size_X != A.Hole_Size_Y) && !A.isPlated()",
@@ -423,8 +650,8 @@ def generate(fab: Fab, variant: dict) -> str:
         out.append("#")
         out.append("# WARNING: trace width/gap for a target impedance depend on YOUR stackup")
         out.append("# (dielectric height, Dk, copper weight). The values below are typical")
-        out.append(f"# starting points for {fab.name}'s default stackup — verify against")
-        out.append(f"# {fab.name}'s impedance calculator for your actual order. Constraints use")
+        out.append(f"# starting points for {fab.impedance_owner}'s default stackup — verify against")
+        out.append(f"# {fab.impedance_owner}'s impedance calculator for your actual order. Constraints use")
         out.append("# (opt ...) so they guide the router without raising nuisance DRC errors;")
         out.append("# tighten to (min/max) once tuned. Assign nets to these classes in")
         out.append("# Board Setup > Net Classes.\n")
@@ -482,19 +709,15 @@ def output_path(fab: Fab, variant: dict) -> str:
 
 def main(argv: list) -> int:
     check = "--check" in argv[1:]
-    toml_paths = sorted(glob.glob(os.path.join(ROOT, "capabilities", "*.toml")))
-    if not toml_paths:
+    fabs = load_fabs()
+    if not fabs:
         print("no capabilities/*.toml files found", file=sys.stderr)
         return 1
 
     stale = []
     written = []
     expected_all: dict = {}
-    for tp in toml_paths:
-        with open(tp, "rb") as fh:
-            fab = Fab(tomllib.load(fh))
-        validate(fab)
-
+    for fab in fabs:
         expected = {}
         for variant in fab.variants:
             expected[output_path(fab, variant)] = generate(fab, variant)

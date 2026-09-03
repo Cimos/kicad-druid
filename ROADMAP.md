@@ -4,7 +4,7 @@ Where this project is and what is next. Status keys: **Done**, **In progress**, 
 
 ## Where we are
 
-Two fabs supported (JLCPCB, PCBWay), each with a rule file and a paired test board. Rules target KiCad 8 syntax and work unchanged on 9 and 10. CI lints every `.kicad_dru` on push. The rules have been checked against real DRC runs on KiCad 9.0.6 and 10.0.5, not just read.
+Two fabs supported (JLCPCB, PCBWay), each with a rule file and a paired test board, plus a derived `Generic/` set that satisfies both. Rules target KiCad 8 syntax and work unchanged on 9 and 10. CI lints every `.kicad_dru` on push. The rules have been checked against real DRC runs on KiCad 9.0.6 and 10.0.5, not just read.
 
 ## Done
 
@@ -21,6 +21,7 @@ Two fabs supported (JLCPCB, PCBWay), each with a rule file and a paired test boa
 | Tooling | Linter layer vocabulary | Checks layer names in `(layer …)` clauses, `.Layer` comparisons and `existsOnLayer()`. The only gate that catches this class, since `kicad-cli` reports a rejected rules file as a clean run. |
 | Docs | Layer-name section in the README | Documents the display-name trap and the silent-CI warning that hid it. |
 | Repo | LICENSE, CONTRIBUTING, issue templates, README rewrite | Basic hygiene for outside contributors. |
+| Fabs | `Generic/` rules, derived from both fabs | One file to design against before the fab is chosen: every limit is the stricter of the two, computed in code with no extra source file to keep in step. |
 
 ## In progress
 

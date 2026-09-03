@@ -30,10 +30,24 @@ jobs:
           sudo apt-get install --yes --no-install-recommends kicad
           kicad-cli version
 
+      - name: Stage a board for the Generic rules
+        run: |
+          set -eu
+          # Generic/ ships rules only. kicad-cli reads the custom rules from
+          # <board>.kicad_dru next to the board, so DRC needs a board named
+          # Generic. The JLCPCB board is used: it exercises the widest set of
+          # rules (Kelvin holes, castellated pads, slots), and Generic is at
+          # least as strict as JLCPCB on every limit, so everything that fires
+          # against the JLCPCB rules still fires here.
+          mkdir -p .drc/Generic
+          cp JLCPCB/JLCPCB.kicad_pcb .drc/Generic/Generic.kicad_pcb
+          cp JLCPCB/JLCPCB.kicad_pro .drc/Generic/Generic.kicad_pro
+          cp Generic/Generic.kicad_dru .drc/Generic/Generic.kicad_dru
+
       - name: Run DRC on each fab's default board
         run: |
           set -u
-          for board in JLCPCB/JLCPCB.kicad_pcb PCBWay/PCBWay.kicad_pcb; do
+          for board in JLCPCB/JLCPCB.kicad_pcb PCBWay/PCBWay.kicad_pcb .drc/Generic/Generic.kicad_pcb; do
             if [ ! -s "$board" ]; then
               echo "skip $board (missing or empty)"
               continue

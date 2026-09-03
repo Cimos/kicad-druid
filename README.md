@@ -11,9 +11,11 @@ The rules are authored against the KiCad 8 custom-rules syntax and are forward-c
 | JLCPCB | [`JLCPCB/`](JLCPCB/)  | https://jlcpcb.com/capabilities/pcb-capabilities  |
 | PCBWay | [`PCBWay/`](PCBWay/)  | https://www.pcbway.com/capabilities.html          |
 
-Each folder contains one `.kicad_dru` per build variant, plus a small test board (`.kicad_pcb`, `.kicad_sch`, `.kicad_pro`) exercising the rules.
+There is also [`Generic/`](Generic/) — one set of rules that satisfies both fabs at once, derived from the two above. See [Generic (either fab)](#generic-either-fab).
 
-The rule files are **generated** from a single source of truth per fab (`capabilities/<FAB>.toml`) by `tools/generate_dru.py` — so there are no "uncomment the right variant" comment blocks to get wrong. Pick the whole file that matches what you're ordering:
+Each fab folder contains one `.kicad_dru` per build variant, plus a small test board (`.kicad_pcb`, `.kicad_sch`, `.kicad_pro`) exercising the rules. `Generic/` holds rule files only.
+
+The rule files are **generated** from a single source of truth per fab (`capabilities/<FAB>.toml`) by `tools/generate_dru.py` — so there are no "uncomment the right variant" comment blocks to get wrong. Pick the whole file that matches what you're ordering, from `JLCPCB/`, `PCBWay/` or `Generic/`:
 
 | File | Layers | Copper |
 |------|--------|--------|
@@ -22,20 +24,30 @@ The rule files are **generated** from a single source of truth per fab (`capabil
 | `<FAB>-4L-2oz.kicad_dru` | 4 | 2oz |
 | `<FAB>-6L-1oz.kicad_dru` | 6 | 1oz |
 
+`<FAB>` is `JLCPCB`, `PCBWay` or `Generic`, so the four Generic files are `Generic/Generic.kicad_dru`, `Generic/Generic-2L-1oz.kicad_dru`, `Generic/Generic-4L-2oz.kicad_dru` and `Generic/Generic-6L-1oz.kicad_dru`.
+
 > **Editing rules:** change `capabilities/<FAB>.toml` and re-run `python3 tools/generate_dru.py`. Do **not** hand-edit the generated `.kicad_dru` files — CI regenerates and fails if they drift from the source.
 
 See [COMPARISON.md](COMPARISON.md) for a side-by-side of every fab's rule values (also generated from the same source).
 
+## Generic (either fab)
+
+`Generic/` holds one set of rules that satisfies **both** fabs. Use it when the board is being designed before the fab is chosen, or when a design has to stay orderable from either — a board that passes the Generic rules passes at JLCPCB and at PCBWay.
+
+Every limit is the stricter of the two: the larger of the two minimums, the smaller of the two maximums, and any rule either fab needs. That makes it more demanding than either fab's own file, so it can push a board towards a more expensive build than it needs — once the fab is settled, switch to that fab's file and the tighter limits relax.
+
+It is derived in code from `capabilities/JLCPCB.toml` and `capabilities/PCBWay.toml` and regenerated with the rest, so it follows any capability update automatically. There is no `capabilities/Generic.toml` to edit. Each generated file's header lists which fab set each value.
+
 ## Use in your project
 
-1. Copy the `.kicad_dru` matching your order from `JLCPCB/` or `PCBWay/` into your KiCad project folder.
+1. Copy the `.kicad_dru` matching your order from `JLCPCB/`, `PCBWay/` or `Generic/` into your KiCad project folder.
 2. Rename it to match your project: `your-project.kicad_dru`.
 3. KiCad picks it up automatically. View under `File > Board Setup > Design Rules > Custom Rules`.
 4. Run `Inspect > Design Rules Checker` (or press F8) to apply.
 
 ### Impedance-controlled routing
 
-PCBWay files ship net classes for impedance-controlled routing: `50R` (single-ended) and `60R_Diff` / `90R_Diff` / `100R_Diff` / `120R_Diff` (differential). Assign nets to the matching class in `Board Setup > Net Classes`; unassigned classes do nothing. JLCPCB files track the fab capability target rule-for-rule and do not add impedance presets.
+PCBWay files ship net classes for impedance-controlled routing: `50R` (single-ended) and `60R_Diff` / `90R_Diff` / `100R_Diff` / `120R_Diff` (differential). Assign nets to the matching class in `Board Setup > Net Classes`; unassigned classes do nothing. JLCPCB files track the fab capability target rule-for-rule and do not add impedance presets. Generic files carry the same classes; where the fabs give different figures for one class, the wider track and the larger gap are used.
 
 > ⚠️ The shipped width/gap values are **typical starting points for the fab's default stackup**. Impedance depends on your actual stackup — verify against the fab's impedance calculator and adjust the values for your order.
 
@@ -69,7 +81,7 @@ The linter is a fast syntax/consistency gate — KiCad has no standalone `.kicad
 kicad-cli pcb drc --exit-code-violations --severity-error JLCPCB/JLCPCB.kicad_pcb
 ```
 
-A separate **DRC** workflow (`.github/workflows/drc.yml`) installs KiCad and runs this against each fab's default board on demand and on board/rule changes, publishing the report as an artifact. It's **informational, not a gate** — the test boards intentionally contain passing and failing footprints, so violations are expected.
+A separate **DRC** workflow (`.github/workflows/drc.yml`) installs KiCad and runs this against each fab's default board on demand and on board/rule changes, publishing the report as an artifact. The Generic rules are run against a copy of the JLCPCB test board, since `Generic/` ships no board of its own. It's **informational, not a gate** — the test boards intentionally contain passing and failing footprints, so violations are expected.
 
 ## KiCad documentation
 

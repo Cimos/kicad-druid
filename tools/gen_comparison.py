@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate COMPARISON.md — a side-by-side table of every fab's rule values,
-read from the same capabilities/*.toml source of truth as the .kicad_dru files.
+read from the same capabilities/*.toml source of truth as the .kicad_dru files,
+plus the derived Generic column.
 
 Usage:
     python3 tools/gen_comparison.py            # (re)write COMPARISON.md
@@ -9,13 +10,11 @@ Usage:
 
 from __future__ import annotations
 
-import glob
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import tomllib  # noqa: E402  (stdlib, 3.11+)
-from generate_dru import Fab, ROOT, validate  # noqa: E402
+from generate_dru import GENERIC_NAME, ROOT, load_fabs  # noqa: E402
 
 OUT = os.path.join(ROOT, "COMPARISON.md")
 
@@ -76,17 +75,7 @@ FLAG_ROWS = [
 ]
 
 
-def load_fabs() -> list:
-    fabs = []
-    for tp in sorted(glob.glob(os.path.join(ROOT, "capabilities", "*.toml"))):
-        with open(tp, "rb") as fh:
-            fab = Fab(tomllib.load(fh))
-        validate(fab)
-        fabs.append(fab)
-    return fabs
-
-
-def merged(fab: Fab, variant: dict) -> dict:
+def merged(fab, variant: dict) -> dict:
     m = dict(fab.constants)
     m.update(variant.get("over", {}))
     # A merged, unlayered trace rule applies the same value to inner copper.
@@ -97,7 +86,7 @@ def merged(fab: Fab, variant: dict) -> dict:
     return m
 
 
-def variant_by_id(fab: Fab, vid: str) -> dict:
+def variant_by_id(fab, vid: str) -> dict:
     for v in fab.variants:
         if v["id"] == vid:
             return v
@@ -122,6 +111,10 @@ def render(fabs: list) -> str:
     doc.append("")
     doc.append("Side-by-side of the design-rule values each fab enforces, read from "
                "`capabilities/*.toml`. All values in mm unless noted.")
+    doc.append("")
+    doc.append(f"`{GENERIC_NAME}` is not a fab and has no TOML: it is derived from the "
+               "others by taking the harder limit of each pair, for boards designed "
+               "before the fab is chosen.")
     doc.append("")
 
     # Constants (resolved at each fab's default variant so variant-only keys fill in).
