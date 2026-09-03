@@ -144,11 +144,8 @@ PASSED += 1
 # --- generator: round-trip — every generated file lints clean and balances parens ---
 import glob  # noqa: E402
 generated = {}
-for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml")):
-    import tomllib
-    with open(tp, "rb") as fh:
-        fab = g.Fab(tomllib.load(fh))
-    g.validate(fab)
+fabs = g.load_fabs()
+for fab in fabs:
     for v in fab.variants:
         text = g.generate(fab, v)
         generated[(fab.name, v["id"])] = text
@@ -297,11 +294,97 @@ with tempfile.TemporaryDirectory() as d:
           "orphan scan only looks where output_path writes")
 
 # End to end: on the real repo, --check must currently report no orphans.
-check(g.find_orphans(set(
-          g.output_path(fab, v)
-          for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml"))
-          for fab in [g.Fab(__import__("tomllib").load(open(tp, "rb")))]
-          for v in fab.variants), g.ROOT) == [],
+check(g.find_orphans(set(g.output_path(f, v) for f in fabs for v in f.variants),
+                     g.ROOT) == [],
       "repo has no orphaned .kicad_dru files")
+
+# --- the derived Generic fab ---
+generic = [f for f in fabs if f.name == g.GENERIC_NAME]
+check(len(generic) == 1, "load_fabs() derives exactly one Generic fab")
+generic = generic[0]
+real_fabs = [f for f in fabs if f is not generic]
+
+# Every value key must be classified as min-type or max-type, or the strictest
+# value would be picked by whichever set happened to match first.
+check(g.MIN_KEYS | g.MAX_KEYS == g.VALUE_KEYS,
+      "every VALUE_KEYS entry is classified min or max")
+check(not (g.MIN_KEYS & g.MAX_KEYS),
+      "no value key is classified both min and max")
+check(g.MAX_KEYS == {"drill_hole_max", "pth_hole_max"},
+      "only the two hole_size upper bounds are max keys")
+
+check(not os.path.exists(os.path.join(g.ROOT, "capabilities", "Generic.toml")),
+      "Generic has no TOML — it is derived in code")
+
+# Generic offers exactly the variants every fab offers.
+generic_ids = [v["id"] for v in generic.variants]
+shared_ids = [v["id"] for v in real_fabs[0].variants
+              if all(g.variant_by_id(f, v["id"]) for f in real_fabs[1:])]
+check(generic_ids == shared_ids, "Generic offers the variants every fab shares")
+
+# Sample values: min keys take the largest across fabs, max keys the smallest.
+for vid, key, expected in [
+    ("4L-1oz", "via_hole", "0.2mm"),            # JLCPCB 0.15, PCBWay 0.2
+    ("4L-1oz", "castellated_min", "0.6mm"),     # JLCPCB 0.5, PCBWay 0.6
+    ("4L-1oz", "nonplated_slot_min", "1.0mm"),  # JLCPCB 1.0, PCBWay 0.8
+    ("4L-1oz", "edge_routed", "0.3mm"),         # JLCPCB 0.2, PCBWay 0.3
+    ("4L-1oz", "text_height", "1mm"),           # JLCPCB 1, PCBWay 0.8
+    ("4L-1oz", "pth_hole_max", "6.3mm"),        # max key: JLCPCB 6.3, PCBWay 6.35
+    ("4L-1oz", "drill_hole_max", "6.3mm"),      # max key: equal either way
+    ("2L-1oz", "drill_hole_min", "0.3mm"),      # JLCPCB 0.3, PCBWay 0.15
+    ("2L-1oz", "trace_width_outer", "0.127mm"),  # JLCPCB 0.1, PCBWay 0.127
+    ("4L-2oz", "trace_spacing_outer", "0.1778mm"),
+    ("6L-1oz", "kelvin_annular", "0.125mm"),    # JLCPCB only — carried over
+    ("6L-1oz", "via_same_net", "0.254mm"),      # PCBWay only — carried over
+]:
+    got = g.resolve(generic, g.variant_by_id(generic, vid)).get(key)
+    others = [g.resolve(f, g.variant_by_id(f, vid)).get(key) for f in real_fabs]
+    check(got == expected,
+          f"Generic {vid} {key}: expected {expected}, got {got} (fabs: {others})")
+
+# A merged, unlayered trace rule is also what that fab allows on inner copper,
+# so it still has a say in Generic's inner limit.
+check(g.resolve(generic, g.variant_by_id(generic, "4L-1oz"))["trace_width_inner"]
+      == "0.1mm",
+      "Generic inner trace width beats the merged JLCPCB limit")
+
+# Generic must emit every rule either fab emits. JLCPCB publishes one unlayered
+# trace rule where PCBWay splits outer from inner; Generic keeps the split, so
+# the merged name maps onto the outer rule (the inner rule is emitted too
+# whenever the variant has inner layers).
+SPLIT_FOR = {
+    "Trace Width": "Trace Width (Outer Layer)",
+    "Trace Spacing": "Trace Spacing (Outer Layer)",
+}
+
+
+def rule_names(text: str, prefix: str) -> set:
+    import re as _re
+    return {m.group(1)[len(prefix) + 2:]
+            for m in _re.finditer(r'\(rule "([^"]*)"', text)
+            if m.group(1).startswith(prefix + ": ")}
+
+
+for vid in generic_ids:
+    mine = rule_names(generated[(generic.name, vid)], generic.prefix)
+    for f in real_fabs:
+        theirs = rule_names(generated[(f.name, vid)], f.prefix)
+        missing = sorted(n for n in theirs if SPLIT_FOR.get(n, n) not in mine)
+        check(not missing,
+              f"Generic {vid}: rules missing from {f.name}: {missing}")
+
+# Deriving and generating twice must give the same bytes — the output is
+# committed, so any ordering wobble would show up as a phantom diff.
+again = g.load_fabs()
+again = [f for f in again if f.name == g.GENERIC_NAME][0]
+for v in again.variants:
+    check(g.generate(again, v) == generated[(generic.name, v["id"])],
+          f"Generic {v['id']}: regenerating gives identical bytes")
+
+# The committed files match what the generator produces right now.
+for v in generic.variants:
+    with open(g.output_path(generic, v), "r", encoding="utf-8") as fh:
+        check(fh.read() == generated[(generic.name, v["id"])],
+              f"Generic {v['id']}: committed file matches the generator")
 
 print(f"OK — {PASSED} checks passed")
