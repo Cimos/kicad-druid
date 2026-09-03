@@ -67,12 +67,15 @@ jobs:
             cp "$dru" ".drc/$name/$name.kicad_dru"
             cat >> ".drc/$name/$name.kicad_dru" <<'DRU'
 
-          # Appended by CI. Every track on the board is narrower than 100mm, so
-          # this always fires; if its violation is missing from the report,
-          # KiCad discarded part or all of the rules file.
+          # Appended by CI. No track on the board is 100mm wide, so this fires
+          # on every track; if its violation is missing from the report, KiCad
+          # discarded part or all of the rules file. An assertion is used
+          # because KiCad names the rule in an assertion's description; a
+          # track_width violation is reported as a board setup constraint
+          # with no rule name, which the check below could not match.
           (rule "SENTINEL: rules file compiled"
           	(condition "A.Type == 'Track'")
-          	(constraint track_width (min 100mm))
+          	(constraint assertion "A.Width > 100mm")
           )
           DRU
             echo "staged $dru -> .drc/$name/$name.kicad_pcb"
