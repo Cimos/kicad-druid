@@ -32,3 +32,6 @@ tmp/
 # Python bytecode cache (from tools/*.py)
 __pycache__/
 *.pyc
+
+# DRC scratch dir (CI stages a Generic board here)
+.drc/
