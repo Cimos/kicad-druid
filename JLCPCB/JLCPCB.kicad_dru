@@ -67,6 +67,16 @@
 )
 
 
+# --- Pad Size ---
+
+# JLCPCB's hard lower limit for an SMD pad. Their recommended
+# minimum is larger; this only catches pads the fab cannot make.
+(rule "JLCPCB: SMD Pad Size"
+	(condition "A.Type == 'Pad' && A.Pad_Type == 'SMD' && (A.Size_X < 0.125mm || A.Size_Y < 0.125mm)")
+	(constraint assertion "A.Size_X >= 0.125mm && A.Size_Y >= 0.125mm")
+)
+
+
 # --- VIA Support Rules ---
 
 (rule "JLCPCB: Only Throughhole VIAs are supported"
