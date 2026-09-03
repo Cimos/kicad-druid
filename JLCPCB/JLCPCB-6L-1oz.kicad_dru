@@ -67,6 +67,16 @@
 )
 
 
+# --- Pad Size ---
+
+# JLCPCB's hard lower limit for an SMD pad. Their recommended
+# minimum is larger; this only catches pads the fab cannot make.
+(rule "JLCPCB: SMD Pad Size"
+	(condition "A.Type == 'Pad' && A.Pad_Type == 'SMD' && (A.Size_X < 0.125mm || A.Size_Y < 0.125mm)")
+	(constraint assertion "A.Size_X >= 0.125mm && A.Size_Y >= 0.125mm")
+)
+
+
 # --- VIA Support Rules ---
 
 (rule "JLCPCB: Only Throughhole VIAs are supported"
@@ -121,11 +131,11 @@
 	(constraint hole_to_hole (min 0.254mm))
 )
 
-# NOTE: This is not stated specifically, but is implied by other rules.
-# A via and a plated pad on different nets are not covered by either the
-# via-to-via or the pad-to-pad hole spacing rule; the pair involves a pad
+# NOTE: Inferred from the pad-to-pad hole figure; not documented by the fab.
+# A via and a plated pad on different nets are covered by neither the
+# via-to-via nor the pad-to-pad hole spacing rule; the pair involves a pad
 # hole, so the pad figure applies.
-(rule "JLCPCB: Via Hole to Pad Hole Clearance (Different Nets)"
+(rule "JLCPCB: Via Hole to Pad Hole Clearance (Different Nets, inferred)"
 	(condition "((A.Type == 'Via' && B.Type == 'Pad') || (A.Type == 'Pad' && B.Type == 'Via')) && A.Net != B.Net")
 	(constraint hole_to_hole (min 0.45mm))
 )

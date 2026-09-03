@@ -62,6 +62,7 @@ FLAG_REQUIRES = {
     "emit_implied_clearance": ["implied_diff", "implied_same_net"],
     "emit_bga": ["bga_to_trace"],
     "emit_same_net_trace_spacing": ["same_net_trace_spacing"],
+    "emit_smd_pad_min": ["smd_pad_min"],
 }
 
 # Every key that generate() consumes through val(...). Keep in sync with the
@@ -80,6 +81,7 @@ VALUE_KEYS = frozenset({
     "via_hole_diff", "via_pad_hole_diff", "pad_nohole_diff", "pad_hole_diff",
     "implied_diff", "implied_same_net",
     "pad_to_trace", "bga_to_trace",
+    "smd_pad_min",
     "trace_width_outer", "trace_spacing_outer",
     "trace_width_inner", "trace_spacing_inner",
     "same_net_trace_spacing",
@@ -90,6 +92,7 @@ ALLOWED_FLAGS = frozenset({
     "avoid_kelvin_test", "avoid_small_via_extra_cost", "allow_blind_buried",
     "enforce_plated_slot_ratio", "emit_implied_clearance", "emit_bga",
     "merge_trace_layers", "emit_same_net_trace_spacing",
+    "emit_smd_pad_min",
 })
 VARIANT_KEYS = frozenset({"id", "label", "layers", "over"})
 DIFFPAIR_KEYS = frozenset({"name", "diff", "track_width", "gap"})
@@ -272,6 +275,16 @@ def generate(fab: Fab, variant: dict) -> str:
             [f"(constraint annular_width (min {val('kelvin_annular')}))"],
             comment="An expensive 4-Wire Kelvin Test is auto-added for holes < 0.3mm with diameter <= 0.4mm."))
 
+    # --- Pad Size ---
+    if fab.flags.get("emit_smd_pad_min"):
+        out.append("\n\n# --- Pad Size ---\n")
+        out.append(rule(
+            f"{p}: SMD Pad Size",
+            f"A.Type == 'Pad' && A.Pad_Type == 'SMD' && (A.Size_X < {val('smd_pad_min')} || A.Size_Y < {val('smd_pad_min')})",
+            [f'(constraint assertion "A.Size_X >= {val("smd_pad_min")} && A.Size_Y >= {val("smd_pad_min")}")'],
+            comment=(f"{fab.name}'s hard lower limit for an SMD pad. Their recommended\n"
+                     "minimum is larger; this only catches pads the fab cannot make.")))
+
     # --- VIA Support Rules ---
     if not fab.flags.get("allow_blind_buried"):
         out.append("\n\n# --- VIA Support Rules ---\n")
@@ -324,14 +337,13 @@ def generate(fab: Fab, variant: dict) -> str:
                         [f"(constraint hole_to_hole (min {val('via_same_net')}))"]))
     out.append("")
     out.append(rule(
-        f"{p}: Via Hole to Pad Hole Clearance (Different Nets)",
+        f"{p}: Via Hole to Pad Hole Clearance (Different Nets, inferred)",
         "((A.Type == 'Via' && B.Type == 'Pad') || (A.Type == 'Pad' && B.Type == 'Via')) && A.Net != B.Net",
         [f"(constraint hole_to_hole (min {val('via_pad_hole_diff')}))"],
-        comment=("NOTE: This is not stated specifically, but is implied by other rules.\n"
-                 "A via and a plated pad on different nets are not covered by either the\n"
-                 "via-to-via or the pad-to-pad hole spacing rule; the pair involves a pad\n"
-                 "hole, so the pad figure applies."
-                 if fab.flags.get("emit_implied_clearance") else "")))
+        comment=("NOTE: Inferred from the pad-to-pad hole figure; not documented by the fab.\n"
+                 "A via and a plated pad on different nets are covered by neither the\n"
+                 "via-to-via nor the pad-to-pad hole spacing rule; the pair involves a pad\n"
+                 "hole, so the pad figure applies.")))
     out.append("")
     out.append(rule(
         f"{p}: Pad to Pad Clearance (Pad without Hole, Different Nets)",

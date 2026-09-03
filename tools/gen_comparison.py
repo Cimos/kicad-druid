@@ -44,6 +44,7 @@ CONSTANT_ROWS = [
     ("npth_to_trace", "NPTH hole to trace"),
     ("npth_to_copper", "NPTH to copper (non-track)"),
     ("pad_to_trace", "Pad to trace"),
+    ("smd_pad_min", "SMD pad size — min"),
     ("bga_to_trace", "BGA to trace"),
     ("same_net_trace_spacing", "Same-net trace spacing (disabled workaround)"),
     ("text_thickness", "Silk line width — min"),
@@ -71,6 +72,7 @@ FLAG_ROWS = [
     ("emit_implied_clearance", "Ships implied catch-all clearances"),
     ("merge_trace_layers", "Uses one trace limit for all copper layers"),
     ("emit_same_net_trace_spacing", "Documents disabled same-net spacing workaround"),
+    ("emit_smd_pad_min", "Ships a minimum SMD pad size rule"),
 ]
 
 

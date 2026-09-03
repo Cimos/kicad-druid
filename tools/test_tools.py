@@ -105,6 +105,7 @@ rejects(clone(variant=[]), "no [[variant]]")
 rejects(clone(flags={"emit_bga": True}), "bga_to_trace")
 rejects(clone(flags={"avoid_small_via_extra_cost": True}), "small_via_hole")
 rejects(clone(flags={"emit_same_net_trace_spacing": True}), "same_net_trace_spacing")
+rejects(clone(flags={"emit_smd_pad_min": True}), "smd_pad_min")
 rejects(clone(diffpair=[{"name": "100R_Diff", "diff": True, "track_width": "0.2mm"}]), "gap")
 
 # --- generator: value validation — every fault below once passed silently ---
@@ -166,8 +167,11 @@ for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml")):
         check(text.count("(layer inner)") == expected_inner,
               f"{fab.name} {v['id']}: expected {expected_inner} inner-layer clauses")
 
-        check(f'{fab.prefix}: Via Hole to Pad Hole Clearance (Different Nets)' in text,
+        check(f'{fab.prefix}: Via Hole to Pad Hole Clearance (Different Nets, inferred)' in text,
               f"{fab.name} {v['id']}: mixed via/pad hole rule present")
+        check("# NOTE: Inferred from the pad-to-pad hole figure; not documented by the fab."
+              in text,
+              f"{fab.name} {v['id']}: mixed via/pad hole rule is marked inferred")
 
         if fab.flags.get("avoid_small_via_extra_cost"):
             check("Via diameter < 0.45mm with hole < 0.3mm adds extra cost" in text,
@@ -196,6 +200,17 @@ for tp in glob.glob(os.path.join(g.ROOT, "capabilities", "*.toml")):
             check(("Trace Width (Inner Layer)" in text) == (v["layers"] > 2),
                   f"{fab.name} {v['id']}: inner trace rule follows layer count")
 
+        if fab.flags.get("emit_smd_pad_min"):
+            smd = fab.constants["smd_pad_min"]
+            check(f'(rule "{fab.prefix}: SMD Pad Size"' in text,
+                  f"{fab.name} {v['id']}: SMD pad size rule present")
+            check(f'(A.Size_X < {smd} || A.Size_Y < {smd})' in text and
+                  f'"A.Size_X >= {smd} && A.Size_Y >= {smd}"' in text,
+                  f"{fab.name} {v['id']}: SMD pad size rule uses the TOML value {smd}")
+        else:
+            check("SMD Pad Size" not in text,
+                  f"{fab.name} {v['id']}: no unsourced SMD pad size rule")
+
         check(("# (rule \"%s: Same-net Trace Spacing\"" % fab.prefix in text) ==
               bool(fab.flags.get("emit_same_net_trace_spacing")),
               f"{fab.name} {v['id']}: disabled same-net block follows flag")
@@ -214,7 +229,7 @@ ordered = [
     "Pad Hole to Pad Hole Clearance (Pad with Hole, Different Nets)",
     "Via/Pad to Via/Pad Clearance (Different Nets)",
     "Via/Pad Hole to Via/Pad Hole Clearance (Same Net)",
-    "Via Hole to Pad Hole Clearance (Different Nets)",
+    "Via Hole to Pad Hole Clearance (Different Nets, inferred)",
     "Pad to Pad Clearance (Pad without Hole, Different Nets)",
 ]
 positions = [jlc.index(f'(rule "JLCPCB: {name}"') for name in ordered]
@@ -248,8 +263,10 @@ check("50R Single-Ended" in jlc and "100R_Diff Differential Pair" in jlc,
 
 pcbway = generated[("PCBWay", "4L-1oz")]
 check("(min 0.5mm)" in rule_block(
-          pcbway, "PCBWay: Via Hole to Pad Hole Clearance (Different Nets)"),
+          pcbway, "PCBWay: Via Hole to Pad Hole Clearance (Different Nets, inferred)"),
       "PCBWay: split mixed-hole rule preserves prior 0.5mm generic clearance")
+check("SMD Pad Size" not in pcbway,
+      "PCBWay: no SMD pad size rule (figure not published)")
 check("adds extra cost" not in pcbway and
       "Plated Slot Length-to-width Ratio" not in pcbway and
       "Same-net Trace Spacing" not in pcbway,

@@ -34,6 +34,7 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`.
 | NPTH hole to trace | 0.2mm | 0.254mm |
 | NPTH to copper (non-track) | 0.2mm | 0.20mm |
 | Pad to trace | 0.2mm | 0.2mm |
+| SMD pad size — min | 0.125mm | — |
 | BGA to trace | 0.1mm | — |
 | Same-net trace spacing (disabled workaround) | 0.25mm | — |
 | Silk line width — min | 0.15mm | 0.15mm |
@@ -85,4 +86,5 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`.
 | Ships implied catch-all clearances | yes | no |
 | Uses one trace limit for all copper layers | yes | no |
 | Documents disabled same-net spacing workaround | yes | no |
+| Ships a minimum SMD pad size rule | yes | no |
 

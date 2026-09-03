@@ -39,6 +39,10 @@ PCBWay files ship net classes for impedance-controlled routing: `50R` (single-en
 
 > ⚠️ The shipped width/gap values are **typical starting points for the fab's default stackup**. Impedance depends on your actual stackup — verify against the fab's impedance calculator and adjust the values for your order.
 
+### JLCPCB: SMD pad size
+
+The JLCPCB files enforce a minimum SMD pad size of **0.125mm** in either dimension — the hard limit below which the fab cannot make the pad. JLCPCB separately *recommend* 0.25mm x 0.25mm, and larger again for ENIG; those are recommendations, not limits, so they are not enforced (fine-pitch QFN and BGA land patterns are routinely smaller).
+
 ## Layer names
 
 Rules here use KiCad's file-format layer names — `F.SilkS`, not `F.Silkscreen`. Both spellings resolve on a board that still uses KiCad's default layer names, but the display name is editable in Board Setup, and board importers (Altium, Eagle, EasyEDA, CADSTAR) overwrite it with the source tool's naming. Boards written before KiCad 6 also load with the file-format name showing. On any of those, a rule written against the display name silently stops matching.
