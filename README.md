@@ -81,7 +81,9 @@ The linter is a fast syntax/consistency gate — KiCad has no standalone `.kicad
 kicad-cli pcb drc --exit-code-violations --severity-error JLCPCB/JLCPCB.kicad_pcb
 ```
 
-A separate **DRC** workflow (`.github/workflows/drc.yml`) installs KiCad and runs this against each fab's default board on demand and on board/rule changes, publishing the report as an artifact. The Generic rules are run against a copy of the JLCPCB test board, since `Generic/` ships no board of its own. It's **informational, not a gate** — the test boards intentionally contain passing and failing footprints, so violations are expected.
+A separate **DRC** workflow (`.github/workflows/drc.yml`) installs KiCad and runs this on demand and on board/rule changes, publishing the reports as an artifact. Every variant file is run, not just the defaults: each of the twelve `.kicad_dru` files gets its own scratch copy of a test board named to match. The Generic rules use a copy of the JLCPCB test board, since `Generic/` ships no board of its own.
+
+The violations themselves are **informational, not a gate** — the test boards intentionally contain passing and failing footprints, so violations are expected. What *is* gated is that the rules file compiled. `kicad-cli pcb drc` reports a rules file KiCad could not compile as a clean run with exit code 0, so a single typo can silently disable every rule while CI stays green. To catch that, CI appends a sentinel rule to the end of the file under test that must always fire, and fails the job if the sentinel is missing from the report. It goes last because an unknown property or a unit-less literal drops that rule and everything after it, while an unknown constraint or layer drops the whole file.
 
 ## KiCad documentation
 
