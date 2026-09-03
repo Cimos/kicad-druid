@@ -50,7 +50,7 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`, 
 
 | Variant | Drill hole — min | Via hole — min | Trace width (outer) | Trace spacing (outer) | Trace width (inner) | Trace spacing (inner) |
 |---|---|---|---|---|---|---|
-| `2L-1oz` | 0.3mm | 0.3mm | 0.1mm | 0.1mm | — | — |
+| `2L-1oz` | 0.15mm | 0.15mm | 0.1mm | 0.1mm | — | — |
 | `4L-1oz` (default) | 0.15mm | 0.15mm | 0.09mm | 0.09mm | 0.09mm | 0.09mm |
 | `4L-2oz` | 0.15mm | 0.15mm | 0.15mm | 0.15mm | 0.15mm | 0.15mm |
 | `6L-1oz` | 0.15mm | 0.15mm | 0.09mm | 0.09mm | 0.09mm | 0.09mm |
@@ -68,7 +68,7 @@ Shown at each fab's default variant **JLCPCB**: `4L-1oz`, **PCBWay**: `4L-1oz`, 
 
 | Variant | Drill hole — min | Via hole — min | Trace width (outer) | Trace spacing (outer) | Trace width (inner) | Trace spacing (inner) |
 |---|---|---|---|---|---|---|
-| `2L-1oz` | 0.3mm | 0.3mm | 0.127mm | 0.127mm | — | — |
+| `2L-1oz` | 0.15mm | 0.3mm | 0.127mm | 0.127mm | — | — |
 | `4L-1oz` (default) | 0.15mm | 0.2mm | 0.09mm | 0.09mm | 0.1mm | 0.1mm |
 | `4L-2oz` | 0.15mm | 0.2mm | 0.1524mm | 0.1778mm | 0.1524mm | 0.1778mm |
 | `6L-1oz` | 0.15mm | 0.2mm | 0.09mm | 0.09mm | 0.1mm | 0.1mm |

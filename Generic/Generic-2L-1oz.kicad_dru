@@ -22,7 +22,7 @@
 # bga_to_trace: 0.1mm (JLCPCB)
 # castellated_min: 0.6mm (PCBWay)
 # drill_hole_max: 6.3mm (JLCPCB, PCBWay)
-# drill_hole_min: 0.3mm (JLCPCB)
+# drill_hole_min: 0.15mm (JLCPCB, PCBWay)
 # edge_routed: 0.3mm (PCBWay)
 # implied_diff: 0.127mm (JLCPCB)
 # implied_same_net: 0.254mm (JLCPCB)
@@ -51,7 +51,7 @@
 # trace_spacing_outer: 0.127mm (PCBWay)
 # trace_width_outer: 0.127mm (PCBWay)
 # via_annular: 0.15mm (PCBWay)
-# via_hole: 0.3mm (JLCPCB, PCBWay)
+# via_hole: 0.3mm (PCBWay)
 # via_hole_diff: 0.5mm (PCBWay)
 # via_pad_hole_diff: 0.5mm (PCBWay)
 # via_same_net: 0.254mm (PCBWay)
@@ -63,7 +63,7 @@
 # --- Drill/Hole Size ---
 
 (rule "Generic: Drill Hole Size"
-	(constraint hole_size (min 0.3mm) (max 6.3mm))
+	(constraint hole_size (min 0.15mm) (max 6.3mm))
 )
 
 (rule "Generic: Via Hole Size"
@@ -93,7 +93,6 @@
 )
 
 (rule "Generic: Castellated Hole Size"
-	(layer outer)
 	(condition "A.Type == 'Pad' && A.Fabrication_Property == 'Castellated pad'")
 	(constraint hole_size (min 0.6mm))
 )

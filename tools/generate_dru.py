@@ -483,8 +483,7 @@ def generate(fab: Fab, variant: dict) -> str:
     out.append("")
     out.append(rule(f"{p}: Castellated Hole Size",
                     "A.Type == 'Pad' && A.Fabrication_Property == 'Castellated pad'",
-                    [f"(constraint hole_size (min {val('castellated_min')}))"],
-                    layer="outer"))
+                    [f"(constraint hole_size (min {val('castellated_min')}))"]))
     out.append("")
     out.append(rule(f"{p}: PTH Annular Ring",
                     "A.Type == 'Pad' && A.Pad_Type == 'Through-hole' && A.isPlated()",
