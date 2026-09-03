@@ -331,7 +331,7 @@ for vid, key, expected in [
     ("4L-1oz", "text_height", "1mm"),           # JLCPCB 1, PCBWay 0.8
     ("4L-1oz", "pth_hole_max", "6.3mm"),        # max key: JLCPCB 6.3, PCBWay 6.35
     ("4L-1oz", "drill_hole_max", "6.3mm"),      # max key: equal either way
-    ("2L-1oz", "drill_hole_min", "0.3mm"),      # JLCPCB 0.3, PCBWay 0.15
+    ("2L-1oz", "via_hole", "0.3mm"),            # JLCPCB 0.15, PCBWay 0.3
     ("2L-1oz", "trace_width_outer", "0.127mm"),  # JLCPCB 0.1, PCBWay 0.127
     ("4L-2oz", "trace_spacing_outer", "0.1778mm"),
     ("6L-1oz", "kelvin_annular", "0.125mm"),    # JLCPCB only — carried over

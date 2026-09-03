@@ -24,7 +24,9 @@ emit_smd_pad_min = true        # emit the hard lower limit on SMD pad size
 
 # Values that do not change between variants.
 [constants]
+drill_hole_min     = "0.15mm"
 drill_hole_max     = "6.3mm"
+via_hole           = "0.15mm"
 via_annular        = "0.05mm"
 small_via_hole     = "0.3mm"
 small_via_diameter = "0.45mm"
@@ -61,8 +63,6 @@ id = "2L-1oz"
 label = "1-2 layer, 1oz copper"
 layers = 2
 [variant.over]
-drill_hole_min      = "0.3mm"
-via_hole            = "0.3mm"
 plated_slot_min     = "0.5mm"
 pth_annular         = "0.18mm"
 trace_width_outer   = "0.1mm"
@@ -73,8 +73,6 @@ id = "4L-1oz"
 label = "4 layer, 1oz outer / 0.5oz inner"
 layers = 4
 [variant.over]
-drill_hole_min      = "0.15mm"
-via_hole            = "0.15mm"
 plated_slot_min     = "0.35mm"
 trace_width_outer   = "0.09mm"
 trace_spacing_outer = "0.09mm"
@@ -84,8 +82,6 @@ id = "4L-2oz"
 label = "4 layer, 2oz copper"
 layers = 4
 [variant.over]
-drill_hole_min      = "0.15mm"
-via_hole            = "0.15mm"
 plated_slot_min     = "0.35mm"
 pth_annular         = "0.254mm"
 trace_width_outer   = "0.15mm"
@@ -96,8 +92,6 @@ id = "6L-1oz"
 label = "6 layer, 1oz outer / 0.5oz inner"
 layers = 6
 [variant.over]
-drill_hole_min      = "0.15mm"
-via_hole            = "0.15mm"
 plated_slot_min     = "0.35mm"
 trace_width_outer   = "0.09mm"
 trace_spacing_outer = "0.09mm"

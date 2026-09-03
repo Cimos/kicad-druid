@@ -15,12 +15,12 @@
 # --- Drill/Hole Size ---
 
 (rule "JLCPCB: Drill Hole Size"
-	(constraint hole_size (min 0.3mm) (max 6.3mm))
+	(constraint hole_size (min 0.15mm) (max 6.3mm))
 )
 
 (rule "JLCPCB: Via Hole Size"
 	(condition "A.Type == 'Via'")
-	(constraint hole_size (min 0.3mm))
+	(constraint hole_size (min 0.15mm))
 )
 
 (rule "JLCPCB: Via Annular Ring"
